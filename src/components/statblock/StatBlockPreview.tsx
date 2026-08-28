@@ -14,6 +14,7 @@ import {
 } from '../../lib/pf2e-actions';
 import type { StatBlockFormModel } from '../../systems';
 import type { Ability, Entry, StatBlock } from '../../types';
+import { canonicalSkillName } from '../../lib/statblock-skills';
 import { AbilityBonusNudge } from './AbilityBonusNudge';
 import { DefenseTraitRow } from './DefenseTraitChips';
 import { CreatureSpellList } from './CreatureSpellList';
@@ -110,11 +111,24 @@ function EntryBlock({
   );
 }
 
+/** Level/CR and source (with page when present) for the creature sheet header. */
+export function creatureCatalogLine(
+  block: StatBlock,
+  showPf2eBlock: boolean,
+): string {
+  const rank = showPf2eBlock
+    ? `Level ${block.pf2e?.level ?? block.cr}`
+    : `CR ${block.cr}`;
+  const source = block.source.trim();
+  return source ? `${rank} · ${source}` : rank;
+}
+
 export function StatBlockPreview({
   block,
   form,
   liveActions,
   onAbilityBonus,
+  hideTitle = false,
 }: {
   block: StatBlock;
   form: StatBlockFormModel;
@@ -125,6 +139,7 @@ export function StatBlockPreview({
   };
   /** Manual +1/−1 under each ability — printed score stays. */
   onAbilityBonus?: (ability: Ability, delta: number) => void;
+  hideTitle?: boolean;
 }) {
   const abs = block.abilities;
   const pb = proficiencyBonusFromCr(block.cr);
@@ -143,12 +158,17 @@ export function StatBlockPreview({
           />
         )}
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-accent">
-            {block.name || 'Unnamed'}
-          </h3>
+          {!hideTitle && (
+            <h3 className="text-lg font-semibold text-accent">
+              {block.name || 'Unnamed'}
+            </h3>
+          )}
           <p className="text-xs italic text-muted">
             {block.size} {block.type}
             {block.alignment ? `, ${block.alignment}` : ''}
+          </p>
+          <p className="mt-0.5 text-xs text-text">
+            {creatureCatalogLine(block, form.showPf2eBlock)}
           </p>
           {liveActions && showCosts && (
             <p className="mt-1 font-mono-stats text-xs tabular-nums text-text">
@@ -218,7 +238,10 @@ export function StatBlockPreview({
             <span className="text-muted">Skills </span>
             <span className="font-mono-stats tabular-nums text-text">
               {Object.entries(block.skills)
-                .map(([k, v]) => `${k} ${formatModifier(v)}`)
+                .map(
+                  ([k, v]) =>
+                    `${canonicalSkillName(k, block.system)} ${formatModifier(v)}`,
+                )
                 .join(', ')}
             </span>
           </div>
@@ -253,10 +276,6 @@ export function StatBlockPreview({
         </div>
         {form.showPf2eBlock && block.pf2e ? (
           <>
-            <div>
-              <span className="text-muted">Level </span>
-              <span className="font-mono-stats tabular-nums text-text">{block.pf2e.level}</span>
-            </div>
             <div>
               <span className="text-muted">Perception </span>
               <span className="font-mono-stats tabular-nums text-text">

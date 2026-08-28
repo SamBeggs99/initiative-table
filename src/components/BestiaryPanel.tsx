@@ -12,8 +12,13 @@ import { getSystemAdapter } from '../systems';
 import { useStore } from '../store';
 import type { NpcRecord, StatBlock } from '../types';
 import { CreatureEditor, type EditorMode } from './statblock/CreatureEditor';
+import {
+  StatBlockPreview,
+  creatureCatalogLine,
+} from './statblock/StatBlockPreview';
 import { NpcQuickEditor } from './NpcPanel';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
+import { Modal } from './ui/Modal';
 
 function formatSyncedAt(ts?: number): string {
   if (!ts) return 'never';
@@ -51,6 +56,7 @@ export function BestiaryPanel() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [bestiaryReady, setBestiaryReady] = useState(false);
   const [portraitOpen, setPortraitOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const autoSyncRef = useRef(false);
 
   const adapter = campaign ? getSystemAdapter(campaign.system) : null;
@@ -208,7 +214,6 @@ export function BestiaryPanel() {
     setNpcDraft(npcFromStatBlock(selected.creature));
   };
 
-  const challengeLabel = adapter.statBlockForm.showPf2eBlock ? 'Lvl' : 'CR';
   const catalogCount = (stats?.totalVisible ?? 0).toLocaleString();
 
   return (
@@ -270,7 +275,7 @@ export function BestiaryPanel() {
           <span className="sr-only">Search creatures</span>
           <input
             className="field w-full text-sm"
-            placeholder="Search, then Enter or + Combat"
+            placeholder="Search, then Enter or +"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -356,8 +361,12 @@ export function BestiaryPanel() {
                     ? 'border-accent/50 bg-accent/10 text-text'
                     : 'border-transparent text-text hover:border-border hover:bg-panel-2'
                 }`}
-                onClick={() => setSelectedId(r.creature.id)}
+                onClick={() => {
+                  setSelectedId(r.creature.id);
+                  setSheetOpen(true);
+                }}
                 onDoubleClick={() => {
+                  setSheetOpen(false);
                   if (r.creature.origin === 'homebrew') {
                     setEditor({ mode: 'edit', initial: r.creature });
                   } else {
@@ -371,30 +380,18 @@ export function BestiaryPanel() {
                   size="xs"
                 />
                 <span className="min-w-0 flex-1 truncate">{r.creature.name}</span>
-                <span className="font-mono-stats text-[10px] tabular-nums text-muted">
-                  {challengeLabel}{' '}
-                  {adapter.statBlockForm.showPf2eBlock
-                    ? (r.creature.pf2e?.level ?? r.creature.cr)
-                    : r.creature.cr}
-                </span>
-                <span
-                  className={`badge-soft shrink-0 ${
-                    r.badge === 'Homebrew' || r.badge === 'This campaign'
-                      ? 'badge-condition'
-                      : ''
-                  }`}
-                >
-                  {r.badge}
-                </span>
+                {(r.badge === 'Homebrew' || r.badge === 'This campaign') && (
+                  <span className="badge-soft badge-condition shrink-0">HB</span>
+                )}
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-accent shrink-0"
+                className="btn btn-sm btn-accent grid h-8 w-8 shrink-0 place-items-center px-0 text-base leading-none"
                 aria-label={`Add ${quantity} ${r.creature.name} to combat`}
                 title={`Add ${quantity} to combat`}
                 onClick={() => addCreature(r.creature, quantity)}
               >
-                + Combat
+                +
               </button>
             </li>
           ))
@@ -404,9 +401,19 @@ export function BestiaryPanel() {
       {selected && (
         <div className="space-y-2 border-t border-border pt-2">
           <div className="flex flex-wrap items-center gap-1">
-            <span className="min-w-0 flex-1 truncate text-xs text-text">
-              {selected.creature.name}
-            </span>
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left"
+              onClick={() => setSheetOpen(true)}
+            >
+              <p className="truncate text-xs text-text">{selected.creature.name}</p>
+              <p className="truncate text-[11px] text-text">
+                {creatureCatalogLine(
+                  selected.creature,
+                  adapter.statBlockForm.showPf2eBlock,
+                )}
+              </p>
+            </button>
             <button type="button" className="btn btn-sm" onClick={toNpc}>
               To NPC
             </button>
@@ -414,9 +421,10 @@ export function BestiaryPanel() {
               type="button"
               className="btn btn-sm"
               disabled={!selected}
-              onClick={() =>
-                setEditor({ mode: 'clone', initial: selected.creature })
-              }
+              onClick={() => {
+                setSheetOpen(false);
+                setEditor({ mode: 'clone', initial: selected.creature });
+              }}
             >
               Clone
             </button>
@@ -424,9 +432,10 @@ export function BestiaryPanel() {
               <button
                 type="button"
                 className="btn btn-sm btn-on"
-                onClick={() =>
-                  setEditor({ mode: 'edit', initial: selected.creature })
-                }
+                onClick={() => {
+                  setSheetOpen(false);
+                  setEditor({ mode: 'edit', initial: selected.creature });
+                }}
               >
                 Edit
               </button>
@@ -457,6 +466,65 @@ export function BestiaryPanel() {
             />
           )}
         </div>
+      )}
+
+      {sheetOpen && selected && (
+        <Modal
+          title={selected.creature.name}
+          size="lg"
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  setSheetOpen(false);
+                  toNpc();
+                }}
+              >
+                To NPC
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  setSheetOpen(false);
+                  setEditor({ mode: 'clone', initial: selected.creature });
+                }}
+              >
+                Clone
+              </button>
+              {selected.creature.origin === 'homebrew' && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    setEditor({ mode: 'edit', initial: selected.creature });
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                onClick={() => addCreature(selected.creature, quantity)}
+              >
+                Add to combat
+              </button>
+            </>
+          }
+        >
+          <div className="max-h-[70vh] overflow-auto">
+            <StatBlockPreview
+              block={selected.creature}
+              form={adapter.statBlockForm}
+              hideTitle
+            />
+          </div>
+        </Modal>
       )}
 
       {editor && (

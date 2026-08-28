@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { DAMAGE_TYPES } from '../../lib/damage-types';
 import { damageFieldsFromDesc, requirementsFromDesc } from '../../lib/parse';
 import type { Entry } from '../../types';
@@ -26,6 +27,31 @@ export function EntryListEditor({
   showDamage,
   showRequirements,
 }: EntryListEditorProps) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [focusNew, setFocusNew] = useState(false);
+
+  const addEntry = () => {
+    const name =
+      label.toLowerCase() === 'actions'
+        ? 'New action'
+        : label.toLowerCase() === 'reactions'
+          ? 'New reaction'
+          : 'New entry';
+    onChange([...entries, { name, desc: '' }]);
+    setFocusNew(true);
+  };
+
+  useEffect(() => {
+    if (!focusNew) return;
+    setFocusNew(false);
+    const input = listRef.current?.querySelector(
+      'li:last-of-type input',
+    ) as HTMLInputElement | null;
+    input?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    input?.focus();
+    input?.select();
+  }, [entries, focusNew]);
+
   const update = (index: number, patch: Partial<Entry>) => {
     onChange(entries.map((e, i) => (i === index ? { ...e, ...patch } : e)));
   };
@@ -68,16 +94,12 @@ export function EntryListEditor({
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</h3>
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={() => onChange([...entries, { name: 'New entry', desc: '' }])}
-        >
+        <button type="button" className="btn btn-sm" onClick={addEntry}>
           Add
         </button>
       </div>
       {entries.length === 0 && <p className="text-xs text-muted">None yet.</p>}
-      <ul className="space-y-2">
+      <ul ref={listRef} className="space-y-2">
         {entries.map((entry, index) => (
           <li key={`${label}-${index}`} className="card p-2.5">
             <div className="mb-1 flex flex-wrap items-center gap-1">
@@ -246,6 +268,11 @@ export function EntryListEditor({
           </li>
         ))}
       </ul>
+      {entries.length > 0 && (
+        <button type="button" className="btn btn-sm w-full" onClick={addEntry}>
+          Add another
+        </button>
+      )}
     </section>
   );
 }

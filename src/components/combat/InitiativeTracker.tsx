@@ -820,7 +820,7 @@ export function InitiativeTracker({
           </span>
           <input
             ref={bulkDmgRef}
-            className="field w-28 py-0.5 font-mono-stats text-sm tabular-nums"
+            className="field w-36 py-0.5 font-mono-stats text-sm tabular-nums"
             placeholder="12 · +8 · *5"
             value={bulkDmg}
             onChange={(e) => setBulkDmg(e.target.value)}

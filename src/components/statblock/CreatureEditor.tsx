@@ -26,6 +26,7 @@ import type { Ability, StatBlock, System } from '../../types';
 import { ConfirmDialog } from '../ui/AskDialog';
 import { PortraitField } from '../ui/Portrait';
 import { EntryListEditor } from './EntryListEditor';
+import { SkillListEditor } from './SkillListEditor';
 import { AbilityBonusNudge } from './AbilityBonusNudge';
 import {
   DefenseTraitChips,
@@ -588,6 +589,11 @@ export function CreatureEditor({
                   );
                 })}
               </div>
+              <SkillListEditor
+                system={system}
+                skills={draft.skills}
+                onChange={(skills) => patch({ skills })}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <label className="block text-xs text-muted">
                   Senses

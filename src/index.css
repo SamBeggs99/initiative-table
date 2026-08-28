@@ -290,7 +290,10 @@ html[data-theme='night'] {
   }
 
   .field::placeholder {
-    color: color-mix(in srgb, var(--color-muted) 65%, transparent);
+    color: var(--color-muted);
+    opacity: 1;
+    text-shadow: none;
+    -webkit-text-fill-color: var(--color-muted);
   }
 
   .field:focus {

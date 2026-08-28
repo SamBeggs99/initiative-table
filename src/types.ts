@@ -310,7 +310,7 @@ export interface Settings {
   /** Banded HP labels on the shared screen / spectator view. */
   hideHpByDefault: boolean;
   /**
-   * Table-facing view: hides roster + tape, enlarges combatant names,
+   * Table-facing view: hides roster, enlarges combatant names,
    * and mutes damage inputs. Implies hideHpByDefault while on.
    */
   sharedScreen: boolean;

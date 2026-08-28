@@ -31,6 +31,7 @@ export function CommandPalette({
   const campaign = useStore(selectActiveCampaign);
   const combat = useStore(selectActiveCombat);
   const system = campaign?.system ?? 'dnd5e';
+  const campaignId = campaign?.id;
   const form = getSystemAdapter(system).statBlockForm;
 
   const ctx: PaletteContext = useMemo(
@@ -72,74 +73,78 @@ export function CommandPalette({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const creatureQuery =
+    intent.type === 'add-creatures'
+      ? intent.query
+      : (text.trim().match(/^\d+\s+(.+)$/)?.[1] ??
+        (text.trim().includes(' ') ? '' : text.trim()));
+  const spellQuery =
+    intent.type === 'open-spell'
+      ? intent.query
+      : /^spell(?:s)?\s+/i.test(text)
+        ? text.trim().replace(/^spell(?:s)?\s+/i, '').trim()
+        : '';
+
   // Async creature fuzzy for add / bare-name intents
   useEffect(() => {
-    if (!open || !campaign) {
-      setCreatures([]);
+    if (!open || !campaignId) {
+      setCreatures((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    if (!creatureQuery) {
+      setCreatures((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     let cancelled = false;
-    const q =
-      intent.type === 'add-creatures'
-        ? intent.query
-        : text.trim().match(/^\d+\s+(.+)$/)?.[1]
-          ?? (text.trim().includes(' ') ? '' : text.trim());
-
-    if (!q || q.length < 1) {
-      setCreatures([]);
-      return;
-    }
-
     const handle = window.setTimeout(async () => {
       const hits = await searchCreatures({
-        system: campaign.system,
-        campaignId: campaign.id,
-        query: q,
+        system,
+        campaignId,
+        query: creatureQuery,
       });
-      if (!cancelled) {
-        setCreatures(hits.slice(0, 8).map((h) => ({ id: h.creature.id, name: h.creature.name })));
-      }
+      if (cancelled) return;
+      const next = hits.slice(0, 8).map((h) => ({
+        id: h.creature.id,
+        name: h.creature.name,
+      }));
+      setCreatures((prev) =>
+        prev.length === next.length && prev.every((c, i) => c.id === next[i]?.id)
+          ? prev
+          : next,
+      );
     }, 80);
 
     return () => {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [open, campaign, text, intent]);
+  }, [open, campaignId, system, creatureQuery]);
 
   useEffect(() => {
-    if (!open || !campaign) {
-      setSpells([]);
-      return;
-    }
-    const q =
-      intent.type === 'open-spell'
-        ? intent.query
-        : text.trim().replace(/^spell(?:s)?\s+/i, '').trim();
-    if (intent.type !== 'open-spell' && !/^spell(?:s)?\s+/i.test(text)) {
-      setSpells([]);
-      return;
-    }
-    if (!q) {
-      setSpells([]);
+    if (!open || !campaignId || !spellQuery) {
+      setSpells((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     let cancelled = false;
     const handle = window.setTimeout(async () => {
       const hits = await searchSpells({
-        system: campaign.system,
-        campaignId: campaign.id,
-        query: q,
+        system,
+        campaignId,
+        query: spellQuery,
       });
-      if (!cancelled) {
-        setSpells(hits.slice(0, 8).map((h) => ({ id: h.spell.id, name: h.spell.name })));
-      }
+      if (cancelled) return;
+      const next = hits.slice(0, 8).map((h) => ({ id: h.spell.id, name: h.spell.name }));
+      setSpells((prev) =>
+        prev.length === next.length && prev.every((s, i) => s.id === next[i]?.id)
+          ? prev
+          : next,
+      );
     }, 80);
     return () => {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [open, campaign, text, intent]);
+  }, [open, campaignId, system, spellQuery]);
 
   const run = async () => {
     const store = useStore.getState();

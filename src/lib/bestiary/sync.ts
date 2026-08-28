@@ -41,34 +41,14 @@ async function fetchAllOpen5e(
 let inflight: Promise<{ count: number; retired: number }> | null = null;
 
 /**
- * Atomic Open5e sync for dnd5e.
- * - Touches only origin === 'synced'
- * - Never reads/writes/deletes homebrew or bundled
- * - Deterministic ids; retired instead of hard-delete
- * - Aborts if new count drops >20% vs last successful sync
+ * Atomic swap of `origin: 'synced'` rows for one system.
+ * Never deletes homebrew or bundled. Aborts if count drops >20% vs last sync.
  */
-export async function syncOpen5eBestiary(
+export async function commitSyncedCreatures(
+  system: System,
+  incoming: StatBlock[],
   onProgress?: (p: SyncProgress) => void,
-  opts?: { fetchImpl?: typeof fetch },
 ): Promise<{ count: number; retired: number }> {
-  if (inflight && !opts?.fetchImpl) return inflight;
-  const run = runOpen5eBestiarySync(onProgress, opts);
-  if (!opts?.fetchImpl) inflight = run.finally(() => {
-    inflight = null;
-  });
-  return run;
-}
-
-async function runOpen5eBestiarySync(
-  onProgress?: (p: SyncProgress) => void,
-  opts?: { fetchImpl?: typeof fetch },
-): Promise<{ count: number; retired: number }> {
-  const system: System = 'dnd5e';
-  const fetchImpl = opts?.fetchImpl ?? fetch;
-
-  onProgress?.({ fetched: 0, phase: 'fetch', message: 'Starting Open5e sync…' });
-  const incoming = await fetchAllOpen5e(onProgress, fetchImpl);
-
   onProgress?.({
     fetched: incoming.length,
     phase: 'validate',
@@ -91,7 +71,6 @@ async function runOpen5eBestiarySync(
     );
   }
 
-  // Stage first (outside the swap). Clear staging, write all.
   await bestiaryDb.creaturesStaging.clear();
   await bestiaryDb.creaturesStaging.bulkPut(incoming);
 
@@ -117,7 +96,6 @@ async function runOpen5eBestiarySync(
         .equals([system, 'synced'])
         .toArray();
 
-      // Retire synced creatures missing upstream — never hard-delete
       for (const old of existingSynced) {
         if (!stagedById.has(old.id)) {
           await bestiaryDb.creatures.put({ ...old, retired: true });
@@ -125,8 +103,6 @@ async function runOpen5eBestiarySync(
         }
       }
 
-      // Upsert all staged synced records (full overwrite, not retired).
-      // Preserve local portrait art attached by the DM.
       for (const creature of staged) {
         const prev = await bestiaryDb.creatures.get(creature.id);
         await bestiaryDb.creatures.put({
@@ -161,6 +137,32 @@ async function runOpen5eBestiarySync(
   });
 
   return { count: incoming.length, retired };
+}
+
+/**
+ * Atomic Open5e sync for dnd5e.
+ * Touches only origin === 'synced'. Never deletes homebrew or bundled.
+ */
+export async function syncOpen5eBestiary(
+  onProgress?: (p: SyncProgress) => void,
+  opts?: { fetchImpl?: typeof fetch },
+): Promise<{ count: number; retired: number }> {
+  if (inflight && !opts?.fetchImpl) return inflight;
+  const run = runOpen5eBestiarySync(onProgress, opts);
+  if (!opts?.fetchImpl) inflight = run.finally(() => {
+    inflight = null;
+  });
+  return run;
+}
+
+async function runOpen5eBestiarySync(
+  onProgress?: (p: SyncProgress) => void,
+  opts?: { fetchImpl?: typeof fetch },
+): Promise<{ count: number; retired: number }> {
+  const fetchImpl = opts?.fetchImpl ?? fetch;
+  onProgress?.({ fetched: 0, phase: 'fetch', message: 'Starting Open5e sync…' });
+  const incoming = await fetchAllOpen5e(onProgress, fetchImpl);
+  return commitSyncedCreatures('dnd5e', incoming, onProgress);
 }
 
 export async function getBestiaryStats(system: System): Promise<{

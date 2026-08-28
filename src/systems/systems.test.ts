@@ -14,7 +14,8 @@ describe('getSystemAdapter', () => {
     expect(pf.turnStructure).toBe('three-action');
     expect(pf.downedModel).toBe('dying-wounded');
     expect(pf.resources.kind).toBe('focus-hero');
-    expect(pf.bestiary.syncEnabled).toBe(false);
+    expect(pf.bestiary.syncEnabled).toBe(true);
+    expect(typeof pf.bestiary.sync).toBe('function');
     expect(pf.spells.syncEnabled).toBe(true);
     expect(typeof pf.spells.sync).toBe('function');
     expect(five.spells.syncEnabled).toBe(true);

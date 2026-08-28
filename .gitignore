@@ -26,3 +26,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Nethys Elasticsearch dumps (regenerate snapshot via scripts/build-nethys-monster-core.ts)
+scripts/nethys-creatures-raw.json
+scripts/*.md
+

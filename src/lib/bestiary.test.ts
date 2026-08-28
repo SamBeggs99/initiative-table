@@ -8,6 +8,7 @@ import {
   saveHomebrewCreature,
   searchCreatures,
   syncOpen5eBestiary,
+  deleteHomebrewCreaturesForCampaign,
 } from './bestiary';
 import { open5eToStatBlock } from './bestiary/normalize-open5e';
 
@@ -209,6 +210,15 @@ describe('bestiary sync homebrew safety', () => {
   });
 });
 
+describe('ensureBundledSeeded', () => {
+  it('skips the per-row rewrite when the 5e SRD is already present', async () => {
+    const first = await ensureBundledSeeded();
+    expect(first).toBeGreaterThan(0);
+    const second = await ensureBundledSeeded();
+    expect(second).toBe(0);
+  });
+});
+
 describe('searchCreatures', () => {
   it('never returns the other system', async () => {
     await saveHomebrewCreature({
@@ -244,6 +254,24 @@ describe('searchCreatures', () => {
     expect(names).toContain('Mine');
     expect(names).toContain('Global Boss');
     expect(names).not.toContain('Other');
+  });
+
+  it('deletes campaign-scoped homebrew and leaves global homebrew', async () => {
+    await saveHomebrewCreature(homebrewGoblin({ campaignId: 'camp-1', name: 'Mine' }));
+    await saveHomebrewCreature(
+      homebrewGoblin({
+        id: crypto.randomUUID(),
+        campaignId: undefined,
+        name: 'Global Boss',
+        slug: 'global-boss',
+      }),
+    );
+    const removed = await deleteHomebrewCreaturesForCampaign('camp-1');
+    expect(removed).toBe(1);
+    const results = await searchCreatures({ system: 'dnd5e', campaignId: 'camp-1' });
+    const names = results.map((r) => r.creature.name);
+    expect(names).toContain('Global Boss');
+    expect(names).not.toContain('Mine');
   });
 
   it('finds by trait/action free text and badges provenance', async () => {

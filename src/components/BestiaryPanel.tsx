@@ -5,9 +5,7 @@ import {
   getBestiaryStats,
   searchCreatures,
   setCreaturePortrait,
-  syncOpen5eBestiary,
   type CreatureSearchResult,
-  type SyncProgress,
 } from '../lib/bestiary';
 import { npcFromStatBlock } from '../lib/npc';
 import { getSystemAdapter } from '../systems';
@@ -77,8 +75,9 @@ export function BestiaryPanel() {
     setBestiaryReady(false);
     (async () => {
       try {
-        await ensureBundledSeeded();
         if (!campaign || cancelled) return;
+        // Do not wait on 5e SRD seeding before showing PF2e (or already-synced 5e).
+        const seed = ensureBundledSeeded();
         const [nextStats, found] = await Promise.all([
           getBestiaryStats(campaign.system),
           searchCreatures({
@@ -92,6 +91,20 @@ export function BestiaryPanel() {
           setResults(found.slice(0, 40));
           setSelectedId((id) => id ?? found[0]?.creature.id ?? null);
           setBestiaryReady(true);
+        }
+        await seed;
+        if (cancelled || campaign.system !== 'dnd5e') return;
+        const [seededStats, seededFound] = await Promise.all([
+          getBestiaryStats(campaign.system),
+          searchCreatures({
+            system: campaign.system,
+            campaignId: campaign.id,
+            query,
+          }),
+        ]);
+        if (!cancelled) {
+          setStats(seededStats);
+          setResults(seededFound.slice(0, 40));
         }
       } catch (err) {
         if (!cancelled) {
@@ -134,13 +147,17 @@ export function BestiaryPanel() {
     [results, selectedId],
   );
 
+  useEffect(() => {
+    autoSyncRef.current = false;
+  }, [campaign?.id, campaign?.system]);
+
   const runSync = async () => {
-    if (!adapter?.bestiary.syncEnabled) return;
+    if (!adapter?.bestiary.syncEnabled || !adapter.bestiary.sync) return;
     setBusy(true);
     setSyncMsg('Fetching catalog…');
     try {
-      const result = await syncOpen5eBestiary((p: SyncProgress) => {
-        setSyncMsg(p.message ?? p.phase);
+      const result = await adapter.bestiary.sync((p) => {
+        setSyncMsg(p.message ?? 'Syncing…');
       });
       pushLog(
         `Bestiary synced: ${result.count} creatures (${result.retired} retired)`,
@@ -204,8 +221,10 @@ export function BestiaryPanel() {
               {stats?.lastSyncedAt
                 ? ` · ${formatSyncedAt(stats.lastSyncedAt)}`
                 : busy
-                  ? ' · fetching full catalog'
-                  : ' · bundled SRD'}
+                  ? ' · fetching catalog'
+                  : campaign.system === 'pf2e'
+                    ? ' · Monster Core'
+                    : ' · bundled SRD'}
               {stats && stats.retired > 0 ? ` · ${stats.retired} retired` : ''}
             </>
           ) : (
@@ -280,7 +299,9 @@ export function BestiaryPanel() {
 
       <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto text-sm">
         {!bestiaryReady ? (
-          <li className="text-muted">Loading bundled creatures…</li>
+          <li className="text-muted">Loading creatures…</li>
+        ) : results.length === 0 && busy ? (
+          <li className="text-muted">{syncMsg ?? 'Fetching catalog…'}</li>
         ) : results.length === 0 ? (
           <li className="space-y-2 py-2 text-xs leading-relaxed text-muted">
             {!adapter.bestiary.syncEnabled ? (
@@ -293,13 +314,16 @@ export function BestiaryPanel() {
               <p>
                 No matches for “<span className="text-text">{query.trim()}</span>”.
                 {!stats?.lastSyncedAt
-                  ? ' Only the bundled SRD creatures are available offline — sync for the full Open5e catalog.'
+                  ? campaign.system === 'pf2e'
+                    ? ' Sync to load Monster Core, or add it as homebrew.'
+                    : ' Only the bundled SRD creatures are available offline — sync for the full Open5e catalog.'
                   : ' Try a different name, or add it as homebrew.'}
               </p>
             ) : (
               <p>
-                No creatures available. Sync the Open5e catalog, or create your
-                own.
+                {campaign.system === 'pf2e'
+                  ? 'No creatures available. Sync Monster Core from Archives of Nethys, or create your own.'
+                  : 'No creatures available. Sync the Open5e catalog, or create your own.'}
               </p>
             )}
             <div className="flex flex-wrap gap-1">

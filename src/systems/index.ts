@@ -5,6 +5,7 @@ import type { SystemAdapter } from './types';
 
 export type {
   BestiarySource,
+  BestiarySyncHookProgress,
   SpellSource,
   SpellSyncHookProgress,
   BudgetMonster,

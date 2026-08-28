@@ -42,16 +42,18 @@ export function provenanceBadge(
 }
 
 function haystack(c: StatBlock): string {
+  const entries = (list: StatBlock['traits'] | undefined) =>
+    (list ?? []).map((t) => `${t.name} ${t.desc}`);
   const parts = [
     c.name,
     c.type,
     c.cr,
     c.source,
-    ...c.traits.map((t) => `${t.name} ${t.desc}`),
-    ...c.actions.map((t) => `${t.name} ${t.desc}`),
-    ...c.bonusActions.map((t) => `${t.name} ${t.desc}`),
-    ...c.reactions.map((t) => `${t.name} ${t.desc}`),
-    ...c.legendaryActions.map((t) => `${t.name} ${t.desc}`),
+    ...entries(c.traits),
+    ...entries(c.actions),
+    ...entries(c.bonusActions),
+    ...entries(c.reactions),
+    ...entries(c.legendaryActions),
   ];
   return parts.join(' ').toLowerCase();
 }

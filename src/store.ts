@@ -507,15 +507,26 @@ export const useStore = create<AppState>()(
       },
 
       deleteCampaign: (id) => {
+        const wasActive = get().activeCampaignId === id;
         set((s) => {
+          const remaining = s.campaigns.filter((c) => c.id !== id);
           const { [id]: _removed, ...restCombat } = s.combatByCampaign;
           void _removed;
+          const nextActive = wasActive
+            ? remaining
+                .slice()
+                .sort((a, b) => b.lastOpened - a.lastOpened)[0]?.id ?? null
+            : s.activeCampaignId;
           return {
-            campaigns: s.campaigns.filter((c) => c.id !== id),
-            activeCampaignId: s.activeCampaignId === id ? null : s.activeCampaignId,
+            campaigns: remaining,
+            activeCampaignId: nextActive,
             combatByCampaign: restCombat,
+            ...(wasActive ? { log: [], undoStack: [] } : {}),
           };
         });
+        if (wasActive && get().activeCampaignId) {
+          get().syncPartyToTape();
+        }
       },
 
       setActiveCampaign: (id) => {

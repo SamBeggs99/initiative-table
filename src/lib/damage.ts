@@ -24,6 +24,7 @@ export function applyHealing(
 ): Pick<Combatant, 'hp' | 'deathSaves'> {
   const heal = Math.max(0, Math.floor(amount));
   const wasDown = combatant.hp <= 0 && combatant.kind === 'pc';
+  // Real HP only — never over max, never converted into temp HP.
   const hp = Math.min(combatant.maxHp, combatant.hp + heal);
 
   return {
@@ -34,8 +35,20 @@ export function applyHealing(
   };
 }
 
-export function setTempHp(amount: number): number {
+export type TempHpOp = 'set' | 'add';
+
+/** `t8` replaces temp HP. `*5` adds. Never goes below 0. */
+export function applyTempHp(
+  current: number,
+  amount: number,
+  op: TempHpOp = 'set',
+): number {
+  if (op === 'add') return Math.max(0, Math.floor(current + amount));
   return Math.max(0, Math.floor(amount));
+}
+
+export function setTempHp(amount: number): number {
+  return applyTempHp(0, amount, 'set');
 }
 
 export function concentrationDC(dmg: number): number {

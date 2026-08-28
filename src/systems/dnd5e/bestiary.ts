@@ -6,8 +6,12 @@ export const dnd5eBestiary: BestiarySource = {
   label: 'Open5e (D&D 5e)',
   syncEnabled: true,
   async sync(onProgress) {
-    await syncOpen5eBestiary((p: SyncProgress) => {
-      onProgress?.(p.fetched, p.total);
+    return syncOpen5eBestiary((p: SyncProgress) => {
+      onProgress?.({
+        fetched: p.fetched,
+        total: p.total,
+        message: p.message,
+      });
     });
   },
 };

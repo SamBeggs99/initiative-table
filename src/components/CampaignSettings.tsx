@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
+  deleteHomebrewCreaturesForCampaign,
   ensureBundledSeeded,
   getBestiaryStats,
-  syncOpen5eBestiary,
-  type SyncProgress,
 } from '../lib/bestiary';
 import { downloadText } from '../lib/session-log';
+import { deleteHomebrewSpellsForCampaign } from '../lib/spells';
 import { getSystemAdapter, SYSTEM_ADAPTERS } from '../systems';
 import { selectActiveCombatants, useStore } from '../store';
 import type { System } from '../types';
 import { useCloudAuth } from '../lib/cloud/auth-context';
+import { ConfirmDialog } from './ui/AskDialog';
 
 function formatSyncedAt(ts?: number): string {
   if (!ts) return 'never';
@@ -29,6 +30,7 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
   const changeCampaignSystem = useStore((s) => s.changeCampaignSystem);
   const exportActiveCampaignJson = useStore((s) => s.exportActiveCampaignJson);
   const importCampaignJson = useStore((s) => s.importCampaignJson);
+  const deleteCampaign = useStore((s) => s.deleteCampaign);
   const pushLog = useStore((s) => s.pushLog);
   const [pendingSystem, setPendingSystem] = useState<System | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -42,11 +44,12 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
   );
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      await ensureBundledSeeded();
       const [a, b] = await Promise.all([
         getBestiaryStats('dnd5e'),
         getBestiaryStats('pf2e'),
@@ -55,6 +58,9 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
         setStats5e(a);
         setStatsPf(b);
       }
+      await ensureBundledSeeded();
+      if (cancelled) return;
+      setStats5e(await getBestiaryStats('dnd5e'));
     })();
     return () => {
       cancelled = true;
@@ -74,14 +80,17 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
     setPendingSystem(null);
   };
 
-  const runSync = async () => {
+  const runSync = async (system: System) => {
+    const source = getSystemAdapter(system).bestiary;
+    if (!source.syncEnabled || !source.sync) return;
     setSyncBusy(true);
     setSyncMsg('Starting sync…');
     try {
-      const result = await syncOpen5eBestiary((p: SyncProgress) => {
-        setSyncMsg(p.message ?? p.phase);
+      const result = await source.sync((p) => {
+        setSyncMsg(p.message ?? 'Syncing…');
       });
-      setStats5e(await getBestiaryStats('dnd5e'));
+      if (system === 'dnd5e') setStats5e(await getBestiaryStats('dnd5e'));
+      else setStatsPf(await getBestiaryStats('pf2e'));
       pushLog(
         `Bestiary synced: ${result.count} creatures (${result.retired} retired)`,
         'system',
@@ -91,6 +100,21 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
       setSyncMsg(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setSyncBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setDeleteBusy(true);
+    try {
+      const name = campaign.name;
+      await deleteHomebrewCreaturesForCampaign(campaign.id);
+      await deleteHomebrewSpellsForCampaign(campaign.id);
+      deleteCampaign(campaign.id);
+      pushLog(`Deleted campaign “${name}”`, 'system');
+      onClose();
+    } finally {
+      setDeleteBusy(false);
+      setPendingDelete(false);
     }
   };
 
@@ -166,20 +190,30 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
               type="button"
               disabled={syncBusy}
               className="btn"
-              onClick={runSync}
+              onClick={() => void runSync('dnd5e')}
             >
               {syncBusy ? 'Syncing…' : 'Re-sync 5e bestiary'}
             </button>
             {syncMsg && <p className="text-muted">{syncMsg}</p>}
-            <p className="text-muted">
-              PF2e bestiary: not synced — homebrew and pasted only
+            <p className="text-text">
+              PF2e bestiary:{' '}
+              {(statsPf?.totalVisible ?? 0).toLocaleString()} creatures, synced{' '}
+              {formatSyncedAt(statsPf?.lastSyncedAt)}
+              {statsPf && statsPf.retired > 0
+                ? ` · ${statsPf.retired} retired (still resolvable by id)`
+                : ''}
               {statsPf && statsPf.homebrew > 0
-                ? ` (${statsPf.homebrew} homebrew)`
+                ? ` · ${statsPf.homebrew} homebrew`
                 : ''}
             </p>
-            <p className="leading-relaxed text-muted">
-              {getSystemAdapter('pf2e').bestiary.syncDisabledReason}
-            </p>
+            <button
+              type="button"
+              disabled={syncBusy}
+              className="btn"
+              onClick={() => void runSync('pf2e')}
+            >
+              {syncBusy ? 'Syncing…' : 'Re-sync PF2e bestiary'}
+            </button>
           </div>
 
           {adapter.resources.kind === 'focus-hero' && (
@@ -276,6 +310,22 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
+          <div className="space-y-2 border-t border-border pt-3">
+            <h3 className="text-xs uppercase tracking-wider text-muted">Delete</h3>
+            <p className="text-xs leading-relaxed text-muted">
+              Removes this campaign’s party, NPCs, notes, combat, and homebrew marked
+              for this table. Encounter library entries stay. This cannot be undone.
+            </p>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={deleteBusy}
+              onClick={() => setPendingDelete(true)}
+            >
+              Delete campaign
+            </button>
+          </div>
+
           <AccountSettings />
 
           {pendingSystem && (
@@ -311,6 +361,18 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete this campaign?"
+          message={`“${campaign.name}” and its party, NPCs, notes, and combat will be removed. Homebrew scoped to this campaign is deleted. Encounter packs in the library are kept.`}
+          confirmLabel={deleteBusy ? 'Deleting…' : 'Delete campaign'}
+          danger
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => {
+            if (!deleteBusy) setPendingDelete(false);
+          }}
+        />
+      )}
     </div>
   );
 }

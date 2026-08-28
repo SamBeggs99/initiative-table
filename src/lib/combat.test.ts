@@ -66,8 +66,10 @@ describe('parseDamageField', () => {
     expect(parseDamageField('14')).toEqual({ kind: 'damage', amount: 14 });
     expect(parseDamageField('-12')).toEqual({ kind: 'damage', amount: 12 });
     expect(parseDamageField('- 8')).toEqual({ kind: 'damage', amount: 8 });
-    expect(parseDamageField('t8')).toEqual({ kind: 'temp', amount: 8 });
-    expect(parseDamageField('t 8')).toEqual({ kind: 'temp', amount: 8 });
+    expect(parseDamageField('t8')).toEqual({ kind: 'temp', amount: 8, tempOp: 'set' });
+    expect(parseDamageField('t 8')).toEqual({ kind: 'temp', amount: 8, tempOp: 'set' });
+    expect(parseDamageField('*5')).toEqual({ kind: 'temp', amount: 5, tempOp: 'add' });
+    expect(parseDamageField('* 5')).toEqual({ kind: 'temp', amount: 5, tempOp: 'add' });
     expect(parseDamageField('h12')).toEqual({ kind: 'heal', amount: 12 });
     expect(parseDamageField('+5')).toEqual({ kind: 'heal', amount: 5 });
     expect(parseDamageField('+ 4')).toEqual({ kind: 'heal', amount: 4 });
@@ -112,6 +114,16 @@ describe('resolveHpField', () => {
     expect(resolveHpField('h2d1+3')).toMatchObject({
       kind: 'heal',
       amount: 5,
+    });
+    expect(resolveHpField('*5')).toEqual({
+      kind: 'temp',
+      amount: 5,
+      tempOp: 'add',
+    });
+    expect(resolveHpField('*2d1+3')).toMatchObject({
+      kind: 'temp',
+      amount: 5,
+      tempOp: 'add',
     });
   });
 });

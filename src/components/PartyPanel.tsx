@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { parseDamageField } from '../lib/combat';
+import { parseDamageField, applyTempHp } from '../lib/combat';
 import { hueHex, pcHueId } from '../lib/identity';
 import { importDdbJson } from '../lib/import/ddb';
 import { importPathbuilderJson } from '../lib/import/pathbuilder';
@@ -29,12 +29,22 @@ function PartyHpField({
 }) {
   const [dmg, setDmg] = useState('');
   const applyPartyHpAdjust = useStore((s) => s.applyPartyHpAdjust);
+  const member = useStore(
+    (s) => s.getActiveCampaign()?.party.find((p) => p.id === memberId) ?? null,
+  );
+  const combatants = useStore((s) => s.getActiveCombat().combatants);
+  const liveTemp = member ? partyDisplayedHp(member, combatants).tempHp : 0;
 
   const submit = (heal: boolean) => {
     const parsed = parseDamageField(dmg);
     if (!parsed) return;
-    if (parsed.kind === 'temp') applyPartyHpAdjust(memberId, 'temp', parsed.amount);
-    else if (heal || parsed.kind === 'heal')
+    if (parsed.kind === 'temp') {
+      applyPartyHpAdjust(
+        memberId,
+        'temp',
+        applyTempHp(liveTemp, parsed.amount, parsed.tempOp ?? 'set'),
+      );
+    } else if (heal || parsed.kind === 'heal')
       applyPartyHpAdjust(memberId, 'heal', parsed.amount);
     else applyPartyHpAdjust(memberId, 'damage', parsed.amount);
     setDmg('');
@@ -56,7 +66,7 @@ function PartyHpField({
         compact ? 'w-14 py-0.5 text-[11px]' : 'w-20 py-1 text-xs'
       }`}
       placeholder="dmg"
-      title="12 or -12 = damage · +12 or h12 = heal · t5 temp"
+      title="12 or -12 = damage · +12 or h12 = heal (max HP) · *5 add temp"
       value={dmg}
       onChange={(e) => setDmg(e.target.value)}
       onClick={(e) => e.stopPropagation()}
@@ -125,8 +135,8 @@ function LiveHpEditor({ member }: { member: PartyMember }) {
         </label>
       </div>
       <p className="mt-1 text-[10px] text-muted">
-        12 or -12 damage · +12 or h12 heal · t5 temp. Sheet max HP stays under
-        Edit sheet.
+        12 or -12 damage · +12 or h12 heal (never over max) · *5 add temp. Sheet
+        max HP stays under Edit sheet.
       </p>
     </div>
   );

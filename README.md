@@ -116,7 +116,6 @@ PF2e campaigns use the same paste pattern for Pathbuilder 2e export JSON
   write-back on end fight / end session.
 - **Ability scores** — D&D 5e and PF2e both use scores (not raw modifiers). Modifier is
   always `floor((score − 10) / 2)` — e.g. STR 9 = −1. Shown as `9 (-1)` everywhere.
-- **Tape** — DM-entered arithmetic only (HALF / DOUBLE / apply to combatant). No dice.
 - **Hide HP / Shared screen** — Healthy / Bloodied / Badly bloodied for a projector view.
   Leaving shared screen restores your previous Hide HP preference.
 - **Day / Night theme** — same earthy botanical palette; night is a moonlit canopy.

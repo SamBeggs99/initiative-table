@@ -98,3 +98,15 @@ export async function deleteHomebrewSpell(id: string): Promise<boolean> {
   notifyCloudDirty();
   return true;
 }
+
+/** Drop homebrew spells scoped to a campaign. Global homebrew is left alone. */
+export async function deleteHomebrewSpellsForCampaign(
+  campaignId: string,
+): Promise<number> {
+  const rows = await spellDb.spells.where('campaignId').equals(campaignId).toArray();
+  const ids = rows.filter((s) => s.origin === 'homebrew').map((s) => s.id);
+  if (ids.length === 0) return 0;
+  await spellDb.spells.bulkDelete(ids);
+  notifyCloudDirty();
+  return ids.length;
+}

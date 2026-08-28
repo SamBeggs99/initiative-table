@@ -4,6 +4,7 @@ import {
   hiddenHpLabel,
   resolveHpField,
   ROLE_LABEL,
+  applyTempHp,
   type CombatantRole,
 } from '../../lib/combat';
 import type { StatBlockFormModel } from '../../systems';
@@ -97,7 +98,9 @@ export function CombatantRow({
   const submitField = (heal: boolean) => {
     const parsed = resolveHpField(dmg);
     if (!parsed) return;
-    if (parsed.kind === 'temp') onTemp(parsed.amount);
+    if (parsed.kind === 'temp') {
+      onTemp(applyTempHp(combatant.tempHp, parsed.amount, parsed.tempOp ?? 'set'));
+    }
     else if (heal || parsed.kind === 'heal') onHeal(parsed.amount);
     else {
       onDamage(
@@ -284,7 +287,7 @@ export function CombatantRow({
                   damageInputRef?.(el);
                 }}
                 className="field w-28 py-0.5 font-mono-stats text-sm tabular-nums"
-                placeholder="12 · +8 · 2d6+3"
+                placeholder="12 · +8 · *5"
                 value={dmg}
                 onChange={(e) => setDmg(e.target.value)}
                 onKeyDown={(e) => {
@@ -294,7 +297,7 @@ export function CombatantRow({
                   }
                 }}
                 aria-label={`Damage ${combatant.name}`}
-                title="12 or -12 = damage. +12 or h12 = heal. t8 = temp. Dice: 2d6+3, +2d8 heal. Type suffix: 12 fire"
+                title="12 or -12 = damage (temp first). +12 or h12 = heal, capped at max HP. *5 = add temp. t8 = replace temp. Dice: 2d6+3. Type: 12 fire"
               />
               <DamageTypeSelect
                 value={damageType}

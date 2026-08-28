@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDamage,
   applyHealing,
+  applyTempHp,
   concentrationDC,
   isBloodied,
 } from './damage';
@@ -23,9 +24,17 @@ describe('applyDamage', () => {
 });
 
 describe('applyHealing', () => {
-  it('caps at maxHp', () => {
-    const c = createCombatant({ name: 'T', kind: 'npc', hp: 18, maxHp: 20 });
+  it('caps at maxHp and does not turn overflow into temp HP', () => {
+    const c = createCombatant({
+      name: 'T',
+      kind: 'npc',
+      hp: 18,
+      maxHp: 20,
+      tempHp: 4,
+    });
     expect(applyHealing(c, 10).hp).toBe(20);
+    expect(applyHealing(c, 10)).not.toHaveProperty('tempHp');
+    expect(applyHealing({ ...c, hp: 20 }, 8).hp).toBe(20);
   });
 
   it('clears death saves when healing a PC at 0', () => {
@@ -53,6 +62,15 @@ describe('applyHealing', () => {
     const next = applyHealing(c, 3);
     expect(next.hp).toBe(3);
     expect(next.deathSaves).toEqual(c.deathSaves);
+  });
+});
+
+describe('applyTempHp', () => {
+  it('replaces on set and stacks on add', () => {
+    expect(applyTempHp(4, 8, 'set')).toBe(8);
+    expect(applyTempHp(4, 5, 'add')).toBe(9);
+    expect(applyTempHp(4, -3, 'add')).toBe(1);
+    expect(applyTempHp(4, -10, 'add')).toBe(0);
   });
 });
 

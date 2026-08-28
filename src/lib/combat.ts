@@ -1,6 +1,6 @@
 import { DAMAGE_TYPES } from './damage-types';
 import { resolveDamageExpr, rollExpression } from './dice';
-import { concentrationDC, isBloodied } from './damage';
+import { isBloodied, type TempHpOp } from './damage';
 import { abilityModifier } from './statblock-derived';
 import type { Ability, ActiveCondition, Combatant, LimitedUse } from '../types';
 import type { SystemAdapter } from '../systems/types';
@@ -36,16 +36,24 @@ export function fillMissingInitiatives(
   );
 }
 
-export function parseDamageField(raw: string): {
+export type HpFieldParsed = {
   kind: 'damage' | 'heal' | 'temp';
   amount: number;
-} | null {
+  tempOp?: TempHpOp;
+};
+
+export function parseDamageField(raw: string): HpFieldParsed | null {
   const t = raw.trim().toLowerCase();
   if (!t) return null;
+  if (t.startsWith('*') || t.startsWith('×')) {
+    const n = Number(t.slice(1).trim());
+    if (!Number.isFinite(n)) return null;
+    return { kind: 'temp', amount: Math.abs(n), tempOp: 'add' };
+  }
   if (t.startsWith('t')) {
     const n = Number(t.slice(1).trim());
     if (!Number.isFinite(n)) return null;
-    return { kind: 'temp', amount: n };
+    return { kind: 'temp', amount: Math.abs(n), tempOp: 'set' };
   }
   if (t.startsWith('h') || t.startsWith('+')) {
     const n = Number(t.slice(1).trim());
@@ -61,13 +69,14 @@ export function parseDamageField(raw: string): {
 }
 
 /**
- * Row / selection HP field: `12` / `-12` damage, `h12` / `+12` heal, `t8` temp,
- * or a dice expr (`2d6+3` damage, `+2d8` / `h2d8` heal, `-2d6` damage).
- * Optional trailing type (`12 fire`, `-8d6 fire`).
+ * Row / selection HP field: `12` / `-12` damage, `h12` / `+12` heal (capped
+ * at max HP), `*5` add temp, `t8` replace temp, or a dice expr (`2d6+3`
+ * damage, `+2d8` heal, `*2d4` temp). Optional trailing type (`12 fire`).
  */
 export function resolveHpField(raw: string): {
   kind: 'damage' | 'heal' | 'temp';
   amount: number;
+  tempOp?: TempHpOp;
   detail?: string;
   type?: string;
 } | null {
@@ -77,15 +86,24 @@ export function resolveHpField(raw: string): {
   if (parsed) return type ? { ...parsed, type } : parsed;
 
   const healPrefix = /^[h+]/i.test(expr);
-  const tempPrefix = /^t/i.test(expr);
+  const starTemp = expr.startsWith('*') || expr.startsWith('×');
+  const tTemp = /^t/i.test(expr);
   const dmgPrefix = expr.startsWith('-');
   const body =
-    healPrefix || tempPrefix || dmgPrefix ? expr.slice(1).trim() : expr;
+    healPrefix || starTemp || tTemp || dmgPrefix ? expr.slice(1).trim() : expr;
   if (!body) return null;
-  if (tempPrefix) return null;
+  if (tTemp) return null;
 
   try {
     const rolled = resolveDamageExpr(body);
+    if (starTemp) {
+      return {
+        kind: 'temp',
+        amount: Math.max(0, rolled.total),
+        tempOp: 'add',
+        detail: rolled.detail,
+      };
+    }
     return {
       kind: healPrefix ? 'heal' : 'damage',
       amount: Math.max(0, rolled.total),
@@ -300,4 +318,4 @@ export function hiddenHpLabel(c: Pick<Combatant, 'hp' | 'maxHp'>): string {
   return 'Healthy';
 }
 
-export { concentrationDC };
+export { applyTempHp, concentrationDC, type TempHpOp } from './damage';

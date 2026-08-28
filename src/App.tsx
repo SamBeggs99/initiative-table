@@ -7,7 +7,6 @@ import { PartyPanel } from './components/PartyPanel';
 import { InitiativeTracker } from './components/combat/InitiativeTracker';
 import { CommandPalette } from './components/CommandPalette';
 import { NotesPanel } from './components/NotesPanel';
-import { TapePanel } from './components/TapePanel';
 import { TrackersPanel } from './components/TrackersPanel';
 import { ToastHost } from './components/ToastHost';
 import { promoteLogToSessionNotes } from './lib/session-notes';
@@ -393,10 +392,9 @@ function RightColumn() {
   return (
     <aside className="rail rail-vine rail-vine-right flex min-h-0 flex-col border-l border-border">
       <div className="header-vine panel-sprig relative border-b border-border px-3 py-3">
-        <div className="section-title section-title-leaf">Tape &amp; trackers</div>
+        <div className="section-title section-title-leaf">Trackers</div>
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        <TapePanel />
         <TrackersPanel />
         <section className="flex min-h-40 shrink-0 flex-col p-3">
           <h2 className="section-title section-title-leaf mb-1">Session log</h2>

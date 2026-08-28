@@ -11,13 +11,22 @@ export {
   slugifyName,
 } from './bestiary/ids';
 export { open5eToStatBlock } from './bestiary/normalize-open5e';
+export {
+  nethysToStatBlock,
+  NETHYS_CREATURE_SOURCES,
+} from './bestiary/normalize-nethys';
 export { ensureBundledSeeded, getBundledCount } from './bestiary/seed';
 export {
+  commitSyncedCreatures,
   getBestiaryStats,
   getCreatureById,
   SyncAbortedError,
   syncOpen5eBestiary,
 } from './bestiary/sync';
+export {
+  fetchNethysCoreCreatures,
+  syncNethysBestiary,
+} from './bestiary/sync-nethys';
 export type { SyncProgress } from './bestiary/sync';
 export {
   provenanceBadge,
@@ -60,6 +69,21 @@ export async function deleteHomebrewCreature(id: string): Promise<boolean> {
   await bestiaryDb.creatures.delete(id);
   notifyCloudDirty();
   return true;
+}
+
+/** Drop homebrew creatures scoped to a campaign. Global homebrew is left alone. */
+export async function deleteHomebrewCreaturesForCampaign(
+  campaignId: string,
+): Promise<number> {
+  const rows = await bestiaryDb.creatures
+    .where('campaignId')
+    .equals(campaignId)
+    .toArray();
+  const ids = rows.filter((c) => c.origin === 'homebrew').map((c) => c.id);
+  if (ids.length === 0) return 0;
+  await bestiaryDb.creatures.bulkDelete(ids);
+  notifyCloudDirty();
+  return ids.length;
 }
 
 /** Attach or clear portrait art on any bestiary record (homebrew / bundled / synced). */

@@ -45,14 +45,21 @@ export interface SpellSource {
   ): Promise<{ count: number; retired: number }>;
 }
 
+export interface BestiarySyncHookProgress {
+  fetched: number;
+  total?: number;
+  message?: string;
+}
+
 export interface BestiarySource {
   id: string;
   label: string;
-  /** Open5e-style full sync. False for PF2e until an AoN adapter lands. */
+  /** Open5e (5e) or Archives of Nethys Monster Core (PF2e). */
   syncEnabled: boolean;
   syncDisabledReason?: string;
-  /** Placeholder for M4 / future API adapters. */
-  sync?(onProgress?: (done: number, total?: number) => void): Promise<void>;
+  sync?(
+    onProgress?: (p: BestiarySyncHookProgress) => void,
+  ): Promise<{ count: number; retired: number }>;
 }
 
 /** Shared difficulty shape — threshold keys differ per system. */

@@ -9,7 +9,7 @@ import { assignIdentityHues, hueHex } from '../../lib/identity';
 import { downloadText, sessionLogToMarkdown } from '../../lib/session-log';
 import { pendingLoot } from '../../lib/loot';
 import { resolveDamageExpr } from '../../lib/dice';
-import { resolveHpField } from '../../lib/combat';
+import { resolveHpField, applyTempHp } from '../../lib/combat';
 import { resolveCombatantPortrait } from '../../lib/portrait';
 import { spendActionsRemaining, type ActionCost } from '../../lib/pf2e-actions';
 import type { Entry } from '../../types';
@@ -239,8 +239,11 @@ export function InitiativeTracker({
           : 'damage';
     const type = parsed.type || damageType || undefined;
     for (const id of ids) {
-      if (kind === 'temp') setTempHp(id, parsed.amount);
-      else if (kind === 'heal') flashHeal(id, parsed.amount);
+      if (kind === 'temp') {
+        const current =
+          combat.combatants.find((c) => c.id === id)?.tempHp ?? 0;
+        setTempHp(id, applyTempHp(current, parsed.amount, parsed.tempOp ?? 'set'));
+      } else if (kind === 'heal') flashHeal(id, parsed.amount);
       else flashDamage(id, parsed.amount, type);
     }
     if (parsed.detail) pushToast(parsed.detail);
@@ -818,7 +821,7 @@ export function InitiativeTracker({
           <input
             ref={bulkDmgRef}
             className="field w-28 py-0.5 font-mono-stats text-sm tabular-nums"
-            placeholder="12 · +8 · 8d6"
+            placeholder="12 · +8 · *5"
             value={bulkDmg}
             onChange={(e) => setBulkDmg(e.target.value)}
             onKeyDown={(e) => {
@@ -830,7 +833,7 @@ export function InitiativeTracker({
               }
             }}
             aria-label="Damage or heal all selected"
-            title="12 or -12 = damage. +12 or h12 = heal. Dice: 2d8+4. Type suffix: 8d6 fire"
+            title="12 or -12 = damage (temp first). +12 or h12 = heal, capped at max HP. *5 = add temp. t8 = replace temp. Dice: 2d8+4. Type: 8d6 fire"
           />
           <DamageTypeSelect value={damageType} onChange={setDamageType} />
           <button

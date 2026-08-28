@@ -18,12 +18,19 @@ const BUNDLED = (srdMonsters as unknown as StatBlock[]).map(withStructuredAction
 
 /** Seed bundled SRD monsters once. Never overwrites synced or homebrew. */
 export async function ensureBundledSeeded(): Promise<number> {
+  const already = await bestiaryDb.creatures
+    .where('[system+origin]')
+    .equals(['dnd5e', 'bundled'])
+    .count();
+  // Skip the per-row rewrite when the SRD is already in Dexie. Re-walking
+  // every bundled row against a 4k-creature table blocked the PF2e library.
+  if (already >= BUNDLED.length) return 0;
+
   let written = 0;
   await bestiaryDb.transaction('rw', bestiaryDb.creatures, async () => {
     for (const monster of BUNDLED) {
       const existing = await bestiaryDb.creatures.get(monster.id);
       if (existing) {
-        // Never overwrite synced or homebrew; refresh bundled only if still bundled
         if (existing.origin === 'bundled') {
           await bestiaryDb.creatures.put({
             ...monster,

@@ -5,7 +5,6 @@ import {
   damageFieldsFromDesc,
   durationFromDesc,
   requirementsFromDesc,
-  saveDcFromDesc,
 } from '../../lib/parse';
 import { formatModifier } from '../../lib/statblock-derived';
 import type { Entry } from '../../types';
@@ -24,7 +23,7 @@ interface EntryListEditorProps {
   showRequirements?: boolean;
   /** Checkbox + note for how long the activity takes or lasts. */
   showDuration?: boolean;
-  /** Save DC and attack-bonus fields. */
+  /** Attack-bonus field (Spell DC belongs on the Spells section). */
   showOffense?: boolean;
 }
 
@@ -244,41 +243,21 @@ export function EntryListEditor({
                     }}
                   />
                 </label>
-                <label className="w-[5.5rem] text-[10px] text-muted">
-                  DC
-                  <input
-                    type="number"
-                    className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
-                    value={entry.saveDc ?? ''}
-                    placeholder="15"
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      update(index, {
-                        saveDc: raw === '' ? undefined : Number(raw),
-                      });
-                    }}
-                  />
-                </label>
                 <button
                   type="button"
                   className="btn btn-sm btn-ghost"
-                  title="Fill attack bonus and DC from the description"
+                  title="Fill attack bonus from the description"
                   onClick={() => {
                     const attackBonus = attackBonusFromDesc(entry.desc);
-                    const saveDc = saveDcFromDesc(entry.desc);
-                    update(index, {
-                      ...(attackBonus != null ? { attackBonus } : {}),
-                      ...(saveDc != null ? { saveDc } : {}),
-                    });
+                    if (attackBonus == null) return;
+                    update(index, { attackBonus });
                   }}
                 >
                   From desc
                 </button>
-                {(entry.attackBonus != null || entry.saveDc != null) && (
+                {entry.attackBonus != null && (
                   <span className="mb-1 font-mono-stats text-[11px] tabular-nums text-muted">
-                    {entry.attackBonus != null && formatModifier(entry.attackBonus)}
-                    {entry.attackBonus != null && entry.saveDc != null && ' · '}
-                    {entry.saveDc != null && `DC ${entry.saveDc}`}
+                    {formatModifier(entry.attackBonus)}
                   </span>
                 )}
               </div>

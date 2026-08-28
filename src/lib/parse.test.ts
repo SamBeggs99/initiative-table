@@ -195,7 +195,7 @@ describe('saveDcFromDesc / attackBonusFromDesc / enrichEntryOffense', () => {
     expect(attackBonusFromDesc('Melee Weapon Attack: +7 to hit')).toBe(7);
   });
 
-  it('enrichEntryOffense fills missing fields and leaves existing ones', () => {
+  it('enrichEntryOffense fills a missing attack bonus and leaves an existing one', () => {
     expect(
       enrichEntryOffense({
         name: 'Bite',
@@ -205,40 +205,36 @@ describe('saveDcFromDesc / attackBonusFromDesc / enrichEntryOffense', () => {
       name: 'Bite',
       desc: 'Melee Weapon Attack: +5 to hit. DC 13 Strength save.',
       attackBonus: 5,
-      saveDc: 13,
     });
     const kept = {
       name: 'Bite',
       desc: 'Melee Weapon Attack: +5 to hit. DC 13 Strength save.',
       attackBonus: 9,
-      saveDc: 18,
     };
     expect(enrichEntryOffense(kept)).toEqual(kept);
   });
 });
 
 describe('formatEntryOffense', () => {
-  it('joins attack bonus and DC', () => {
-    expect(formatEntryOffense({ attackBonus: 7, saveDc: 15 })).toBe('+7 · DC 15');
+  it('prints the attack bonus only — Spell DC is not an action field', () => {
+    expect(formatEntryOffense({ attackBonus: 7 })).toBe('+7');
     expect(formatEntryOffense({ attackBonus: -1 })).toBe('-1');
-    expect(formatEntryOffense({ saveDc: 14 })).toBe('DC 14');
     expect(formatEntryOffense({})).toBe('');
   });
 });
 
 describe('enrichEntry', () => {
-  it('fills damage, requirements, duration, and offense from prose', () => {
-    expect(
-      enrichEntry({
-        name: 'Breath',
-        desc: 'Requirements The dragon is flying. Duration 1 minute. DC 18 Dexterity saving throw. Hit: 33 (6d10) fire damage.',
-      }),
-    ).toMatchObject({
+  it('fills damage, requirements, duration, and attack bonus from prose', () => {
+    const filled = enrichEntry({
+      name: 'Breath',
+      desc: 'Requirements The dragon is flying. Duration 1 minute. DC 18 Dexterity saving throw. Hit: 33 (6d10) fire damage.',
+    });
+    expect(filled).toMatchObject({
       damage: { expr: '6d10', type: 'fire' },
       requirements: 'The dragon is flying.',
       duration: '1 minute',
-      saveDc: 18,
     });
+    expect(filled).not.toHaveProperty('saveDc');
   });
 });
 

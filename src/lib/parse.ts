@@ -176,16 +176,9 @@ export function attackBonusFromDesc(desc: string): number | undefined {
 }
 
 export function enrichEntryOffense(entry: Entry): Entry {
-  let next = entry;
-  if (next.saveDc == null) {
-    const saveDc = saveDcFromDesc(next.desc);
-    if (saveDc != null) next = { ...next, saveDc };
-  }
-  if (next.attackBonus == null) {
-    const attackBonus = attackBonusFromDesc(next.desc);
-    if (attackBonus != null) next = { ...next, attackBonus };
-  }
-  return next;
+  if (entry.attackBonus != null) return entry;
+  const attackBonus = attackBonusFromDesc(entry.desc);
+  return attackBonus != null ? { ...entry, attackBonus } : entry;
 }
 
 /** Fill structured damage, requirements, duration, and offense from free-text. */
@@ -196,14 +189,12 @@ export function enrichEntry(entry: Entry): Entry {
 }
 
 export function formatEntryOffense(
-  entry: Pick<Entry, 'attackBonus' | 'saveDc'>,
+  entry: Pick<Entry, 'attackBonus'>,
 ): string {
-  const bits: string[] = [];
-  if (entry.attackBonus != null) {
-    bits.push(entry.attackBonus >= 0 ? `+${entry.attackBonus}` : `${entry.attackBonus}`);
-  }
-  if (entry.saveDc != null) bits.push(`DC ${entry.saveDc}`);
-  return bits.join(' · ');
+  if (entry.attackBonus == null) return '';
+  return entry.attackBonus >= 0
+    ? `+${entry.attackBonus}`
+    : `${entry.attackBonus}`;
 }
 
 export function parseSaveDC(text: string): ParsedSaveDC | null {

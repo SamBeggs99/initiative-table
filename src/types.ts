@@ -24,9 +24,7 @@ export interface Entry {
    * Empty/undefined = instantaneous / not timed.
    */
   duration?: string;
-  /** Save DC printed on the action (Fireball DC 15, Breath Weapon DC 18). */
-  saveDc?: number;
-  /** Attack bonus printed on the action (+7 to hit). */
+  /** Attack bonus printed on the action (+7 to hit). Spell DC lives on spellcasting. */
   attackBonus?: number;
 }
 

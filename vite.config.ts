@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  // GitHub Pages serves this at /initiative-table/; local and other hosts use /.
-  base: process.env.GITHUB_PAGES === 'true' ? '/initiative-table/' : '/',
+  // Custom domain (dm-multitool.com) is served at the site root.
+  base: '/',
   plugins: [react(), tailwindcss()],
   test: {
     environment: 'node',

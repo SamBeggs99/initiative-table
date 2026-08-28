@@ -30,13 +30,14 @@ to enable email/password login and a per-user cloud copy of your campaigns.
    key is meant to live in the website; RLS is the lock.
 4. GitHub Actions builds `dist/` and deploys to GitHub Pages. Set repository secrets
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (same values as `.env.local`).
-5. In Supabase → Authentication → URL Configuration, set **Site URL** to the Pages
-   address (`https://sambeggs99.github.io/initiative-table/`) and add it under
-   **Redirect URLs**, plus `http://localhost:5188/**` for local work.
+5. In Supabase → Authentication → URL Configuration, set **Site URL** to
+   `https://dm-multitool.com` and add these **Redirect URLs**:
+   `https://dm-multitool.com/**`, `https://www.dm-multitool.com/**`,
+   `http://localhost:5188/**`.
 6. Open the live URL, log in with the account you already created. Hit **Sync** once
    per system for SRD catalogs (those stay a per-device download).
 
-Live site: https://sambeggs99.github.io/initiative-table/
+Live site: https://dm-multitool.com
 
 Optional later: Authentication → disable new sign-ups until you want other DMs.
 

@@ -194,7 +194,7 @@ export function FirstCampaignWizard({
             <SproutMark size={24} />
             <div>
               <h2 className="text-base font-semibold text-text">
-                {forceOpen ? 'New campaign' : 'Welcome to Initiative Table'}
+                {forceOpen ? 'New campaign' : 'Welcome to Dungeon Master MultiTool'}
               </h2>
               <p className="text-xs text-muted">
                 {forceOpen

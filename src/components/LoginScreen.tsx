@@ -76,7 +76,7 @@ export function LoginScreen() {
           <div className="flex items-center gap-2">
             <SproutMark size={24} />
             <div>
-              <h1 className="text-base font-semibold text-text">Initiative Table</h1>
+              <h1 className="text-base font-semibold text-text">Dungeon Master MultiTool</h1>
               <p className="text-xs text-muted">
                 Sign in to load your campaigns on this device
               </p>

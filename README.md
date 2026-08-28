@@ -1,4 +1,4 @@
-# Initiative Table
+# Dungeon Master MultiTool
 
 A D&D 5e combat manager and campaign multi-tool for DMs running games live at the table.
 Pathfinder 2e is supported per-campaign through a system adapter (conditions, three-action
@@ -93,7 +93,7 @@ D&D Beyond has **no** public, documented API. Staff have pointed at ToS §2.2. T
 **not** scrape or auto-fetch D&D Beyond.
 
 Party import is **user-initiated paste only**: open a public character sheet, append `/json`
-to the URL, copy the JSON, paste it into Initiative Table. All DDB field knowledge lives in
+to the URL, copy the JSON, paste it into Dungeon Master MultiTool. All DDB field knowledge lives in
 `src/lib/import/ddb.ts` so a shape change loses one convenience, not the app.
 
 PF2e campaigns use the same paste pattern for Pathbuilder 2e export JSON

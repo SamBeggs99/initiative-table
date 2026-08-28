@@ -71,8 +71,8 @@ function CampaignStrip({
       <header className="rail header-vine flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-4">
         <div className="flex shrink-0 items-center gap-2">
           <SproutMark />
-          <span className="whitespace-nowrap text-sm font-semibold tracking-wide text-text">
-            Initiative Table
+          <span className="text-sm font-semibold tracking-wide text-text sm:whitespace-nowrap">
+            Dungeon Master MultiTool
           </span>
         </div>
         <div className="hidden h-5 w-px bg-border sm:block" />

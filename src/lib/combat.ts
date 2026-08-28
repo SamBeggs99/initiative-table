@@ -16,8 +16,8 @@ export function fillMissingInitiatives(
   adapter: Pick<SystemAdapter, 'initiative' | 'initiativeIsRolled'>,
 ): Combatant[] {
   if (mode === 'blank') return combatants;
-  // Systems that read initiative off a static score (PF2e perception) have
-  // nothing to group-roll, so mode collapses to the same answer either way.
+  // Systems that read initiative off a static score have nothing to
+  // group-roll, so mode collapses to the same answer either way.
   if (!adapter.initiativeIsRolled) {
     return combatants.map((c) =>
       c.initiative == null ? { ...c, initiative: adapter.initiative(c) } : c,

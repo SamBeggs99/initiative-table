@@ -116,7 +116,7 @@ export function CombatantRow({
     <div
       className={`row-combat px-3 py-2 ${active ? 'row-active row-reveal' : ''} ${
         selected ? 'row-selected row-reveal' : ''
-      } ${focused && !active ? 'row-focused row-reveal' : ''} ${
+      } ${focused && !active ? 'row-focused' : ''} ${
         deadMonster ? 'row-dead line-through' : ''
       } ${turnPulse && active ? 'row-turn-pulse' : ''}`}
       style={
@@ -144,7 +144,7 @@ export function CombatantRow({
         {!sharedScreen && (
           <input
             type="checkbox"
-            className="mt-2 accent-[var(--color-accent)]"
+            className="mt-1.5 accent-[var(--color-accent)]"
             checked={selected}
             onChange={(e) => {
               e.stopPropagation();
@@ -157,7 +157,7 @@ export function CombatantRow({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {showInitiative &&
               (editingInit && !sharedScreen ? (
                 <input
@@ -180,9 +180,7 @@ export function CombatantRow({
               ) : (
                 <button
                   type="button"
-                  className={`init-pill ${hue ? 'init-pill-identity' : ''} ${
-                    active ? 'init-pill-active' : ''
-                  }`}
+                  className={`init-pill ${active ? 'init-pill-active' : ''}`}
                   title={sharedScreen ? undefined : 'Edit initiative'}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -200,13 +198,17 @@ export function CombatantRow({
               <span className="sr-only">{ROLE_LABEL[role]}</span>
             </span>
 
-            <PortraitThumb src={portraitUrl} alt="" size="xs" />
+            {hue && <span className="identity-swatch" aria-hidden />}
+
+            <PortraitThumb
+              src={portraitUrl}
+              alt=""
+              size={sharedScreen ? 'sm' : 'xs'}
+            />
 
             <button
               type="button"
-              className={`row-name min-w-0 flex-1 truncate text-left text-sm font-semibold ${
-                hue ? 'name-identity' : 'text-text hover:text-accent'
-              }`}
+              className="row-name min-w-0 flex-1 truncate text-left text-[0.95rem]"
               title={
                 sharedScreen
                   ? combatant.name
@@ -231,12 +233,12 @@ export function CombatantRow({
               />
             )}
 
-            <span className="chip shrink-0 font-mono-stats tabular-nums">
-              AC <span className="text-text">{combatant.ac}</span>
+            <span className="vital-pair">
+              AC <b>{combatant.ac}</b>
             </span>
 
-            <div className="flex w-44 shrink-0 items-center gap-2">
-              <span className="row-hp w-20 shrink-0 text-right font-mono-stats text-sm font-semibold tabular-nums text-text">
+            <div className="flex min-w-[10rem] flex-1 items-center gap-2 sm:max-w-xs">
+              <span className="row-hp w-[4.5rem] shrink-0 text-right font-mono-stats text-sm font-semibold tabular-nums text-text">
                 {hideHp || combatant.hidden || sharedScreen ? (
                   <span className="text-condition">{hiddenHpLabel(combatant)}</span>
                 ) : (
@@ -279,32 +281,38 @@ export function CombatantRow({
 
           {!sharedScreen && (
             <div
-              className="mt-1.5 flex flex-wrap items-center gap-2"
+              className="mt-1 flex flex-wrap items-center gap-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <input
-                ref={(el) => {
-                  damageInputRef?.(el);
-                }}
-                className="field w-36 py-0.5 font-mono-stats text-sm tabular-nums"
-                value={dmg}
-                onChange={(e) => setDmg(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    submitField(e.shiftKey);
-                  }
-                }}
-                aria-label={`Damage ${combatant.name}`}
-                title="12 or -12 = damage (temp first). +12 or h12 = heal, capped at max HP. *5 = add temp. t8 = replace temp. Dice: 2d6+3. Type: 12 fire"
-              />
+              <label className="flex min-w-0 items-baseline gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-muted">
+                  HP
+                </span>
+                <input
+                  ref={(el) => {
+                    damageInputRef?.(el);
+                  }}
+                  className="field-tape w-28 py-0.5 font-mono-stats text-sm tabular-nums"
+                  value={dmg}
+                  onChange={(e) => setDmg(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submitField(e.shiftKey);
+                    }
+                  }}
+                  aria-label={`Damage ${combatant.name}`}
+                  title="12 or -12 = damage (temp first). +12 or h12 = heal, capped at max HP. *5 = add temp. t8 = replace temp. Dice: 2d6+3. Type: 12 fire"
+                />
+              </label>
               <DamageTypeSelect
                 value={damageType}
                 onChange={onDamageTypeChange}
+                className="row-affordance w-[6.5rem]"
               />
               <button
                 type="button"
-                className="btn btn-sm btn-heal"
+                className={`btn btn-sm ${dmg.trim() ? 'btn-heal' : 'btn-text'}`}
                 disabled={!dmg.trim()}
                 onClick={() => submitField(true)}
               >
@@ -363,14 +371,16 @@ export function CombatantRow({
           {!sharedScreen &&
             onUseAction &&
             (combatant.statBlock?.actions?.length ?? 0) > 0 && (
-              <ActionStrip
-                actions={combatant.statBlock!.actions}
-                actionCosts={combatant.statBlock!.pf2e?.actionCosts}
-                actionsRemaining={combatant.actionsRemaining ?? 3}
-                showCosts={form.showPf2eBlock}
-                disabled={deadMonster}
-                onUse={onUseAction}
-              />
+              <div className={active ? '' : 'row-affordance'}>
+                <ActionStrip
+                  actions={combatant.statBlock!.actions}
+                  actionCosts={combatant.statBlock!.pf2e?.actionCosts}
+                  actionsRemaining={combatant.actionsRemaining ?? 3}
+                  showCosts={form.showPf2eBlock}
+                  disabled={deadMonster}
+                  onUse={onUseAction}
+                />
+              </div>
             )}
 
           {downedPc && !sharedScreen && (
@@ -387,7 +397,7 @@ export function CombatantRow({
                 {'●'.repeat(combatant.deathSaves.failures)}
                 {'○'.repeat(3 - combatant.deathSaves.failures)}
               </span>
-              <button type="button" className="btn btn-sm" onClick={onDeathSave}>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={onDeathSave}>
                 Roll death save
               </button>
             </div>

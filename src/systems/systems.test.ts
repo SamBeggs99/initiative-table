@@ -61,10 +61,16 @@ describe('dnd5e adapter', () => {
 describe('pf2e adapter', () => {
   const adapter = getSystemAdapter('pf2e');
 
-  it('uses perception for initiative without rolling', () => {
-    const c = createCombatant({ name: 'Amiri', kind: 'pc', perception: 7 });
-    expect(adapter.initiative(c)).toBe(7);
-    expect(adapter.initiative(c)).toBe(7);
+  it('rolls initiative as d20 + dex mod, not Perception', () => {
+    const c = createCombatant({
+      name: 'Amiri',
+      kind: 'pc',
+      dex: 16,
+      perception: 7,
+    });
+    const init = adapter.initiative(c);
+    expect(init).toBeGreaterThanOrEqual(4);
+    expect(init).toBeLessThanOrEqual(23);
   });
 
   it('resets three actions and MAP on turn start', () => {

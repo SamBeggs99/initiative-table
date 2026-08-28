@@ -1,3 +1,5 @@
+import { rollWithAdvantage } from '../../lib/dice';
+import { abilityModFromCombatant } from '../../lib/combat';
 import type { ActiveCondition, Combatant } from '../../types';
 import type { ConditionDef, SystemAdapter } from '../types';
 import { pf2eBestiary } from './bestiary';
@@ -59,13 +61,10 @@ export const pf2eAdapter: SystemAdapter = {
     showPf2eBlock: true,
   },
 
-  /** Perception modifier / score used as initiative — never auto-rolled. */
   initiative(c: Combatant): number {
-    if (c.perception != null) return c.perception;
-    if (c.statBlock?.pf2e?.perception != null) return c.statBlock.pf2e.perception;
-    return c.initiative ?? 0;
+    return rollWithAdvantage(abilityModFromCombatant(c, 'dex'), 'flat').total;
   },
-  initiativeIsRolled: false,
+  initiativeIsRolled: true,
 
   encounterBudget: pf2eEncounterBudget,
 

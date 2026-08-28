@@ -35,7 +35,7 @@ export function CombatLootPanel({ sharedScreen }: { sharedScreen?: boolean }) {
           {awardedCount > 0 && (
             <button
               type="button"
-              className="btn btn-sm"
+              className="btn btn-sm btn-ghost"
               title="Already in Notes — remove from this canvas"
               onClick={() => clearAwardedLoot()}
             >
@@ -80,7 +80,7 @@ export function CombatLootPanel({ sharedScreen }: { sharedScreen?: boolean }) {
             {!line.awarded && (
               <button
                 type="button"
-                className="btn btn-sm shrink-0"
+                className="btn btn-sm btn-ghost shrink-0"
                 onClick={() => awardLoot(line.id)}
               >
                 Award

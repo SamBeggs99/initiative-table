@@ -16,10 +16,10 @@ export function SpellPreview({
   const cost = spell.pf2e?.actions;
 
   return (
-    <article className="overflow-auto rounded border border-border bg-panel-2 p-3 text-sm">
+    <article className="stat-sheet h-full overflow-auto p-3 text-sm">
       <header>
         {!hideTitle && (
-          <h3 className="text-lg font-semibold text-accent">{spell.name}</h3>
+          <h3 className="sheet-title text-2xl leading-tight">{spell.name}</h3>
         )}
         <p className="text-xs italic text-muted">
           {spellLevelLabel(spell)} {spell.school}

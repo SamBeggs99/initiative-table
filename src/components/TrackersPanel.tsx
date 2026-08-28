@@ -6,7 +6,6 @@ import {
 } from '../lib/trackers';
 import { selectActiveTrackers, useStore } from '../store';
 import type { Tracker } from '../types';
-import { Sprig, VineRule } from './ornament/Botanical';
 
 const COLORS = ['#a78bfa', '#3d9cf0', '#3ecf8e', '#e85d5d', '#d4a017'] as const;
 
@@ -254,33 +253,19 @@ export function TrackersPanel() {
   return (
     <section className="shrink-0 border-b border-border p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="section-title section-title-leaf">Trackers</h2>
+        <h2 className="section-title">Trackers</h2>
         <button
           type="button"
-          className="btn btn-sm"
+          className="btn btn-sm btn-ghost"
           onClick={() => setCreating((v) => !v)}
         >
           {creating ? 'Close' : '+ Add'}
         </button>
       </div>
-      <p className="text-[11px] leading-snug text-muted">
-        Counters and clocks you set by hand — the app never rolls these. Clocks with
-        auto-tick advance when the round does.
-      </p>
-      <VineRule className="my-2" />
 
       {creating && <NewTrackerForm onClose={() => setCreating(false)} />}
 
-      {trackers.length === 0 && !creating ? (
-        <div className="flex items-start gap-2 text-xs text-muted">
-          <Sprig />
-          <p>
-            Add a clock for rituals / alarms, or a campaign counter for gold, XP,
-            standing. Also:{' '}
-            <span className="font-mono-stats">Ctrl+K → clock ritual 6</span>
-          </p>
-        </div>
-      ) : (
+      {trackers.length > 0 && (
         <ul className="max-h-56 space-y-2 overflow-auto">
           {trackers.map((t) => (
             <TrackerRow key={t.id} tracker={t} />

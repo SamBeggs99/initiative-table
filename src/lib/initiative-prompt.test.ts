@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCombatant, type Combatant } from '../types';
+import { createCombatant } from '../types';
 import { getSystemAdapter } from '../systems';
 import {
   applyInitiativeMap,
@@ -42,7 +42,7 @@ describe('buildInitiativePromptRows', () => {
       dex: 14,
       initiative: 15,
     });
-    const rows = buildInitiativePromptRows([pc, a, b], { rolled: true });
+    const rows = buildInitiativePromptRows([pc, a, b]);
     expect(rows).toHaveLength(3);
     expect(rows[0]!.label).toBe('Kael');
     expect(rows[0]!.combatantIds).toEqual([pc.id]);
@@ -62,34 +62,23 @@ describe('buildInitiativePromptRows', () => {
       kind: 'npc',
       initiative: 11,
     });
-    const rows = buildInitiativePromptRows([npc], { rolled: true });
+    const rows = buildInitiativePromptRows([npc]);
     expect(rows[0]!.suggested).toBeNull();
   });
 
-  it('prefills PF2e perception and lair 20', () => {
+  it('prefills lair 20 but leaves everyone else blank, including PF2e Perception', () => {
     const amiri = createCombatant({
       name: 'Amiri',
       kind: 'pc',
+      dex: 14,
       perception: 7,
     });
     const lair = createCombatant({ name: 'Lair', kind: 'lair' });
-    const rows = buildInitiativePromptRows([amiri, lair], { rolled: false });
-    expect(rows[0]!.suggested).toBe(7);
-    expect(rows[0]!.hint).toBe('Perception +7');
+    const rows = buildInitiativePromptRows([amiri, lair]);
+    expect(rows[0]!.suggested).toBeNull();
+    expect(rows[0]!.hint).toBe('d20+2');
     expect(rows[1]!.suggested).toBe(20);
     expect(rows[1]!.hint).toBe('usually 20');
-  });
-
-  it('reads perception off an embedded PF2e stat block', () => {
-    const goblin = createCombatant({
-      name: 'Goblin',
-      kind: 'npc',
-      statBlock: {
-        pf2e: { perception: 5 },
-      } as Combatant['statBlock'],
-    });
-    const rows = buildInitiativePromptRows([goblin], { rolled: false });
-    expect(rows[0]!.suggested).toBe(5);
   });
 });
 
@@ -98,7 +87,7 @@ describe('expandInitiativeValues', () => {
     const gk = 'pack-3';
     const a = createCombatant({ name: 'Goblin A', kind: 'npc', groupKey: gk });
     const b = createCombatant({ name: 'Goblin B', kind: 'npc', groupKey: gk });
-    const rows = buildInitiativePromptRows([a, b], { rolled: true });
+    const rows = buildInitiativePromptRows([a, b]);
     const map = expandInitiativeValues(rows, {
       [a.id]: '14',
       [b.id]: '9',
@@ -108,7 +97,7 @@ describe('expandInitiativeValues', () => {
 
   it('returns null when a row is blank', () => {
     const pc = createCombatant({ name: 'Kael', kind: 'pc' });
-    const rows = buildInitiativePromptRows([pc], { rolled: true });
+    const rows = buildInitiativePromptRows([pc]);
     expect(expandInitiativeValues(rows, { [pc.id]: '' })).toBeNull();
   });
 });
@@ -124,15 +113,22 @@ describe('applyInitiativeMap', () => {
 });
 
 describe('rollInitiativeFor', () => {
-  it('uses 20 for lairs and perception for PF2e', () => {
+  it('uses 20 for lairs regardless of system', () => {
     const lair = createCombatant({ name: 'Lair', kind: 'lair' });
     expect(rollInitiativeFor(lair, getSystemAdapter('dnd5e'))).toBe(20);
+    expect(rollInitiativeFor(lair, getSystemAdapter('pf2e'))).toBe(20);
+  });
+
+  it('rolls d20 + Dex for PF2e too, not Perception', () => {
     const amiri = createCombatant({
       name: 'Amiri',
       kind: 'pc',
+      dex: 10,
       perception: 9,
     });
-    expect(rollInitiativeFor(amiri, getSystemAdapter('pf2e'))).toBe(9);
+    const roll = rollInitiativeFor(amiri, getSystemAdapter('pf2e'));
+    expect(roll).toBeGreaterThanOrEqual(1);
+    expect(roll).toBeLessThanOrEqual(20);
   });
 });
 
@@ -140,7 +136,7 @@ describe('seedInitiativeValues', () => {
   it('stringifies suggestions and leaves blanks empty', () => {
     const pc = createCombatant({ name: 'Kael', kind: 'pc', initiative: null });
     const lair = createCombatant({ name: 'Lair', kind: 'lair' });
-    const rows = buildInitiativePromptRows([pc, lair], { rolled: true });
+    const rows = buildInitiativePromptRows([pc, lair]);
     expect(seedInitiativeValues(rows)).toEqual({
       [pc.id]: '',
       [lair.id]: '20',

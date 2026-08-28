@@ -240,7 +240,7 @@ export function BestiaryPanel() {
           <button
             type="button"
             disabled={busy}
-            className="btn btn-sm"
+            className="btn btn-sm btn-ghost"
             onClick={() => void runSync()}
           >
             {busy ? 'Syncing…' : 'Sync'}
@@ -248,14 +248,14 @@ export function BestiaryPanel() {
         )}
         <button
           type="button"
-          className="btn btn-sm"
+          className="btn btn-sm btn-ghost"
           onClick={() => setEditor({ mode: 'new' })}
         >
           New
         </button>
         <button
           type="button"
-          className="btn btn-sm"
+          className="btn btn-sm btn-ghost"
           onClick={() => setEditor({ mode: 'import' })}
         >
           Import
@@ -343,7 +343,7 @@ export function BestiaryPanel() {
                 <button
                   type="button"
                   disabled={busy}
-                  className="btn btn-sm"
+                  className="btn btn-sm btn-ghost"
                   onClick={runSync}
                 >
                   {busy ? 'Syncing…' : 'Sync'}
@@ -379,7 +379,9 @@ export function BestiaryPanel() {
                   alt=""
                   size="xs"
                 />
-                <span className="min-w-0 flex-1 truncate">{r.creature.name}</span>
+                <span className="name-identity min-w-0 flex-1 truncate">
+                  {r.creature.name}
+                </span>
                 {(r.badge === 'Homebrew' || r.badge === 'This campaign') && (
                   <span className="badge-soft badge-condition shrink-0">HB</span>
                 )}
@@ -406,7 +408,7 @@ export function BestiaryPanel() {
               className="min-w-0 flex-1 text-left"
               onClick={() => setSheetOpen(true)}
             >
-              <p className="truncate text-xs text-text">{selected.creature.name}</p>
+              <p className="name-identity truncate text-sm">{selected.creature.name}</p>
               <p className="truncate text-[11px] text-text">
                 {creatureCatalogLine(
                   selected.creature,
@@ -414,12 +416,12 @@ export function BestiaryPanel() {
                 )}
               </p>
             </button>
-            <button type="button" className="btn btn-sm" onClick={toNpc}>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={toNpc}>
               To NPC
             </button>
             <button
               type="button"
-              className="btn btn-sm"
+              className="btn btn-sm btn-ghost"
               disabled={!selected}
               onClick={() => {
                 setSheetOpen(false);
@@ -442,7 +444,7 @@ export function BestiaryPanel() {
             )}
             <button
               type="button"
-              className={`btn btn-sm ${portraitOpen ? 'btn-on' : ''}`}
+              className={`btn btn-sm ${portraitOpen ? 'btn-on' : 'btn-ghost'}`}
               onClick={() => setPortraitOpen((open) => !open)}
             >
               Portrait
@@ -477,7 +479,7 @@ export function BestiaryPanel() {
             <>
               <button
                 type="button"
-                className="btn btn-sm"
+                className="btn btn-sm btn-ghost"
                 onClick={() => {
                   setSheetOpen(false);
                   toNpc();
@@ -487,7 +489,7 @@ export function BestiaryPanel() {
               </button>
               <button
                 type="button"
-                className="btn btn-sm"
+                className="btn btn-sm btn-ghost"
                 onClick={() => {
                   setSheetOpen(false);
                   setEditor({ mode: 'clone', initial: selected.creature });
@@ -498,7 +500,7 @@ export function BestiaryPanel() {
               {selected.creature.origin === 'homebrew' && (
                 <button
                   type="button"
-                  className="btn btn-sm"
+                  className="btn btn-sm btn-ghost"
                   onClick={() => {
                     setSheetOpen(false);
                     setEditor({ mode: 'edit', initial: selected.creature });

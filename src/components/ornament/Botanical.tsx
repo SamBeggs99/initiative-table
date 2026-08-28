@@ -178,7 +178,7 @@ export function SproutMark({ size = 24 }: { size?: number }) {
 export function VineRule({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`pointer-events-none flex select-none items-center gap-1.5 ${className}`}
+      className={`vine-rule pointer-events-none flex select-none items-center gap-1.5 ${className}`}
       aria-hidden
     >
       <span className="vine-hair vine-hair-left h-px flex-1" />

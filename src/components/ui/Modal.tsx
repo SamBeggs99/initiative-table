@@ -20,6 +20,7 @@ export function Modal({
   footer,
   onClose,
   size = 'md',
+  variant = 'default',
   initialFocusRef,
 }: {
   title: string;
@@ -27,6 +28,8 @@ export function Modal({
   footer?: ReactNode;
   onClose: () => void;
   size?: 'sm' | 'md' | 'lg';
+  /** 'glass' gives the panel a frosted, translucent liquid-glass surface. */
+  variant?: 'default' | 'glass';
   initialFocusRef?: React.RefObject<HTMLElement | null>;
 }) {
   const titleId = useId();
@@ -80,7 +83,11 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/70 backdrop-blur-sm p-4"
+      className={`fixed inset-0 z-50 flex items-start justify-center overflow-auto p-4 ${
+        variant === 'glass'
+          ? 'bg-black/45 backdrop-blur-[2px]'
+          : 'bg-black/70 backdrop-blur-sm'
+      }`}
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -91,11 +98,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`my-8 w-full ${width} card shadow-2xl outline-none`}
+        className={`my-8 w-full ${width} outline-none ${
+          variant === 'glass' ? 'modal-glass' : 'card shadow-2xl'
+        }`}
         onKeyDown={onKeyDown}
       >
         <div className="header-vine flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 id={titleId} className="text-sm font-semibold text-text">
+          <h2 id={titleId} className="sheet-title text-xl leading-tight">
             {title}
           </h2>
           <button

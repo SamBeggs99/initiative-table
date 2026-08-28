@@ -86,7 +86,7 @@ function EntryBlock({
                 {canUse && (
                   <button
                     type="button"
-                    className="btn btn-sm ml-2 align-middle"
+                    className="btn btn-sm btn-text ml-2 align-middle"
                     disabled={tooExpensive}
                     title={
                       tooExpensive
@@ -147,7 +147,7 @@ export function StatBlockPreview({
   const costs = block.pf2e?.actionCosts;
 
   return (
-    <article className="h-full overflow-auto rounded border border-border bg-panel-2 p-3 text-sm">
+    <article className="stat-sheet h-full overflow-auto p-3 text-sm">
       <header className="flex items-start gap-3">
         {block.portraitDataUrl && (
           <img
@@ -159,7 +159,7 @@ export function StatBlockPreview({
         )}
         <div className="min-w-0">
           {!hideTitle && (
-            <h3 className="text-lg font-semibold text-accent">
+            <h3 className="sheet-title text-2xl leading-tight">
               {block.name || 'Unnamed'}
             </h3>
           )}

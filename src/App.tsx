@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CampaignSettings } from './components/CampaignSettings';
 import { BestiaryPanel } from './components/BestiaryPanel';
 import { SpellsPanel } from './components/SpellsPanel';
@@ -14,7 +14,6 @@ import {
   BloomCluster,
   Sprig,
   SproutMark,
-  VineRule,
 } from './components/ornament/Botanical';
 import { FirstCampaignWizard } from './components/FirstCampaignWizard';
 import { DevGallery } from './components/DevGallery';
@@ -46,14 +45,14 @@ function deriveSessionMode(
 
 function CampaignStrip({
   onNewCampaign,
+  onOpenPalette,
 }: {
   onNewCampaign: () => void;
+  onOpenPalette: () => void;
 }) {
   const campaigns = useStore((s) => s.campaigns);
   const activeCampaignId = useStore((s) => s.activeCampaignId);
   const setActiveCampaign = useStore((s) => s.setActiveCampaign);
-  const settings = useStore((s) => s.settings);
-  const updateSettings = useStore((s) => s.updateSettings);
   const active = campaigns.find((c) => c.id === activeCampaignId);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -67,86 +66,46 @@ function CampaignStrip({
 
   return (
     <>
-      <header className="rail header-vine flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-4">
-        <div className="flex shrink-0 items-center gap-2">
+      <header className="rail header-vine flex min-h-12 shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <SproutMark />
-          <span className="text-sm font-semibold tracking-wide text-text sm:whitespace-nowrap">
-            Dungeon Master MultiTool
-          </span>
-        </div>
-        <div className="hidden h-5 w-px bg-border sm:block" />
-        <label className="flex min-w-0 items-center gap-2 text-sm text-muted">
-          <span className="sr-only">Campaign</span>
-          <select
-            className="field max-w-48 py-1.5"
-            value={activeCampaignId ?? ''}
-            onChange={(e) => setActiveCampaign(e.target.value || null)}
-          >
-            <option value="">No campaign</option>
-            {campaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({getSystemAdapter(c.system).label})
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn" onClick={onNewCampaign}>
-          New campaign
-        </button>
-        {active && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Settings
-          </button>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          <AccountChip />
-          <button
-            type="button"
-            className="btn btn-sm"
-            title="Day / Night theme"
-            onClick={() =>
-              updateSettings({
-                theme: settings.theme === 'night' ? 'day' : 'night',
-              })
-            }
-          >
-            {settings.theme === 'night' ? 'Night' : 'Day'}
-          </button>
-          {active && (
-            <>
-              <button
-                type="button"
-                className="btn btn-sm"
-                title="Comfortable / Compact density"
-                onClick={() =>
-                  updateSettings({
-                    density:
-                      settings.density === 'compact' ? 'comfortable' : 'compact',
-                  })
+          <label className="flex min-w-0 flex-1 items-center">
+            <span className="sr-only">Campaign</span>
+            <select
+              className="max-w-full min-w-0 truncate border-0 bg-transparent py-1 font-display text-base font-semibold text-text outline-none focus:text-accent"
+              value={activeCampaignId ?? ''}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  onNewCampaign();
+                  return;
                 }
-              >
-                {settings.density === 'compact' ? 'Compact' : 'Comfortable'}
-              </button>
-              <span className="badge-soft badge-accent hidden lg:inline-flex">
-                {getSystemAdapter(active.system).label}
-              </span>
-              <span className="badge-soft hidden lg:inline-flex">
-                Session {active.sessionNumber ?? 1}
-              </span>
-              {active.system === 'pf2e' && active.heroPoints != null && (
-                <span className="badge-soft badge-condition hidden lg:inline-flex">
-                  Hero {active.heroPoints}
-                </span>
-              )}
-              <kbd className="chip hidden font-mono-stats text-[10px] lg:inline-flex">
-                Ctrl+K
-              </kbd>
-            </>
-          )}
+                setActiveCampaign(e.target.value || null);
+              }}
+            >
+              <option value="">Dungeon Master MultiTool</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="__new__">+ New campaign…</option>
+            </select>
+          </label>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            className="btn btn-text btn-sm hidden sm:inline-flex shared-hide"
+            title="Command palette"
+            onClick={onOpenPalette}
+          >
+            <kbd className="chip font-mono-stats text-[10px]">Ctrl+K</kbd>
+          </button>
+          <HeaderOverflow
+            hasCampaign={Boolean(active)}
+            onNewCampaign={onNewCampaign}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         </div>
       </header>
       {settingsOpen && <CampaignSettings onClose={() => setSettingsOpen(false)} />}
@@ -154,18 +113,123 @@ function CampaignStrip({
   );
 }
 
-function AccountChip() {
+function HeaderOverflow({
+  hasCampaign,
+  onNewCampaign,
+  onOpenSettings,
+}: {
+  hasCampaign: boolean;
+  onNewCampaign: () => void;
+  onOpenSettings: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const settings = useStore((s) => s.settings);
+  const updateSettings = useStore((s) => s.updateSettings);
   const { configured, session, email, signOut } = useCloudAuth();
-  if (!configured || !session) return null;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: globalThis.MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <button
-      type="button"
-      className="btn btn-sm"
-      title={email ? `Signed in as ${email}` : 'Sign out'}
-      onClick={() => void signOut()}
-    >
-      Sign out
-    </button>
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((v) => !v)}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="card absolute right-0 z-40 mt-1 min-w-44 overflow-hidden py-1 shadow-2xl"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="btn btn-ghost w-full justify-start rounded-none"
+            onClick={() => {
+              setOpen(false);
+              onNewCampaign();
+            }}
+          >
+            New campaign
+          </button>
+          {hasCampaign && (
+            <button
+              type="button"
+              role="menuitem"
+              className="btn btn-ghost w-full justify-start rounded-none"
+              onClick={() => {
+                setOpen(false);
+                onOpenSettings();
+              }}
+            >
+              Settings
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            className="btn btn-ghost w-full justify-start rounded-none"
+            onClick={() =>
+              updateSettings({
+                theme: settings.theme === 'night' ? 'day' : 'night',
+              })
+            }
+          >
+            {settings.theme === 'night' ? 'Day theme' : 'Night theme'}
+          </button>
+          {hasCampaign && (
+            <button
+              type="button"
+              role="menuitem"
+              className="btn btn-ghost w-full justify-start rounded-none"
+              onClick={() =>
+                updateSettings({
+                  density:
+                    settings.density === 'compact' ? 'comfortable' : 'compact',
+                })
+              }
+            >
+              {settings.density === 'compact' ? 'Comfortable density' : 'Compact density'}
+            </button>
+          )}
+          {configured && session && (
+            <button
+              type="button"
+              role="menuitem"
+              className="btn btn-ghost w-full justify-start rounded-none"
+              title={email ? `Signed in as ${email}` : 'Sign out'}
+              onClick={() => {
+                setOpen(false);
+                void signOut();
+              }}
+            >
+              Sign out
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -391,14 +455,10 @@ function RightColumn() {
 
   return (
     <aside className="rail rail-vine rail-vine-right flex min-h-0 flex-col border-l border-border">
-      <div className="header-vine panel-sprig relative border-b border-border px-3 py-3">
-        <div className="section-title section-title-leaf">Trackers</div>
-      </div>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <TrackersPanel />
-        <section className="flex min-h-40 shrink-0 flex-col p-3">
-          <h2 className="section-title section-title-leaf mb-1">Session log</h2>
-          <VineRule className="mb-2" />
+        <section className="flex min-h-32 shrink-0 flex-col p-3">
+          <h2 className="section-title mb-2">Session log</h2>
           <div className="min-h-0 flex-1 overflow-auto font-mono-stats text-[11px] tabular-nums">
             {log.length === 0 ? (
               <div className="flex items-center gap-2 text-muted">
@@ -519,7 +579,8 @@ function TableApp() {
     document.documentElement.dataset.density = settings.density;
     document.documentElement.dataset.theme = settings.theme;
     document.documentElement.dataset.shared = sharedScreen ? 'true' : 'false';
-  }, [settings.density, settings.theme, sharedScreen]);
+    document.documentElement.dataset.session = mode;
+  }, [settings.density, settings.theme, sharedScreen, mode]);
 
   // Session-mode emphasis: combat → library creatures; downtime → players.
   useEffect(() => {
@@ -565,7 +626,10 @@ function TableApp() {
 
   return (
     <div className="flex h-full flex-col">
-      <CampaignStrip onNewCampaign={openNewCampaignWizard} />
+      <CampaignStrip
+        onNewCampaign={openNewCampaignWizard}
+        onOpenPalette={() => setPaletteOpen(true)}
+      />
       <div className={gridClass}>
         {!sharedScreen && (
           <LeftColumn

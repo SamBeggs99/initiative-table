@@ -164,7 +164,7 @@ export interface Combatant {
   dying?: number;
   wounded?: number;
   focusPoints?: { current: number; max: number };
-  /** Perception used for initiative (no auto-roll). */
+  /** Informational Perception score/modifier. Not tied to initiative. */
   perception?: number;
 }
 

@@ -28,6 +28,7 @@
 
   --font-mono-stats: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
   --font-sans-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Fraunces", "Palatino Linotype", Palatino, Georgia, serif;
 }
 
 /*
@@ -266,6 +267,21 @@ html[data-theme='night'] {
     color: var(--color-text);
   }
 
+  .btn-text {
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+    color: var(--color-muted);
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+  }
+
+  .btn-text:hover:not(:disabled) {
+    background: none;
+    border-color: transparent;
+    color: var(--color-text);
+  }
+
   .btn-on {
     border-color: color-mix(in srgb, var(--color-condition) 55%, var(--color-border));
     background: linear-gradient(
@@ -321,6 +337,81 @@ html[data-theme='night'] {
   .card-hover:hover {
     border-color: var(--color-border-strong);
     background: linear-gradient(180deg, var(--color-panel), var(--color-panel-2));
+  }
+
+  /* ---------- Liquid glass surface (frosted, translucent panels) ---------- */
+  .modal-glass {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 0.875rem;
+    border: 1px solid color-mix(in srgb, #ffffff 30%, var(--color-border));
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-panel) 46%, transparent) 0%,
+      color-mix(in srgb, var(--color-panel-2) 58%, transparent) 100%
+    );
+    backdrop-filter: blur(24px) saturate(165%);
+    -webkit-backdrop-filter: blur(24px) saturate(165%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #ffffff 10%, transparent),
+      inset 0 -14px 26px -18px color-mix(in srgb, #ffffff 40%, transparent),
+      0 1px 2px rgba(43, 38, 32, 0.08),
+      0 28px 56px -24px rgba(43, 38, 32, 0.55);
+  }
+
+  .modal-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      130% 80% at 8% -12%,
+      color-mix(in srgb, #ffffff 45%, transparent),
+      transparent 55%
+    );
+    mix-blend-mode: screen;
+    opacity: 0.65;
+  }
+
+  .modal-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      transparent 35%,
+      color-mix(in srgb, #ffffff 16%, transparent) 48%,
+      transparent 62%
+    );
+    opacity: 0.5;
+  }
+
+  :root[data-theme='night'] .modal-glass {
+    border-color: color-mix(in srgb, #ffffff 16%, var(--color-border));
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-panel) 52%, transparent) 0%,
+      color-mix(in srgb, var(--color-panel-2) 64%, transparent) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 12%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #ffffff 7%, transparent),
+      inset 0 -14px 26px -18px color-mix(in srgb, #ffffff 8%, transparent),
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 32px 60px -26px rgba(0, 0, 0, 0.85);
+  }
+
+  :root[data-theme='night'] .modal-glass::before {
+    opacity: 0.28;
+  }
+
+  :root[data-theme='night'] .modal-glass::after {
+    opacity: 0.22;
   }
 
   .rail {
@@ -633,6 +724,15 @@ html[data-theme='night'] {
     background-repeat: repeat-x;
   }
 
+  /* Combat: ornament recedes so HP is the art. */
+  html[data-session='combat'] .rail-vine::before,
+  html[data-session='combat'] .header-vine::after,
+  html[data-session='combat'] .panel-sprig::before,
+  html[data-session='combat'] .parchment-roll,
+  html[data-session='combat'] .vine-rule {
+    display: none;
+  }
+
   /* Table-facing view stays clean — ornament is prep-time delight only. */
   :root[data-shared='true'] .ornament,
   :root[data-shared='true'] .ornament-soft,
@@ -640,7 +740,8 @@ html[data-theme='night'] {
   :root[data-shared='true'] .header-vine::after,
   :root[data-shared='true'] .panel-sprig::before,
   :root[data-shared='true'] .stage-canopy::before,
-  :root[data-shared='true'] .stage-canopy::after {
+  :root[data-shared='true'] .stage-canopy::after,
+  :root[data-shared='true'] .vine-rule {
     display: none;
   }
 
@@ -650,6 +751,10 @@ html[data-theme='night'] {
 
   :root[data-shared='true'] .parchment-roll {
     display: none;
+  }
+
+  :root[data-shared='true'] .shared-hide {
+    display: none !important;
   }
 
   /* Night: tallow-lit vellum — deeper stock, warmer fibres, heavier edge burn. */
@@ -935,13 +1040,77 @@ html[data-theme='night'] {
     background: var(--color-accent);
   }
 
-  .name-identity {
-    color: var(--identity, var(--color-text));
+  .row-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-text);
   }
 
-  button.name-identity:hover,
-  a.name-identity:hover {
+  button.row-name:hover {
     color: var(--color-accent);
+  }
+
+  .identity-swatch {
+    display: inline-block;
+    height: 0.375rem;
+    width: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--identity, var(--color-border-strong));
+  }
+
+  .vital-pair {
+    font-family: var(--font-mono-stats);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .vital-pair b {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .field-tape {
+    border: none;
+    border-bottom: 1px solid var(--color-border-strong);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .field-tape:focus {
+    border-color: transparent;
+    border-bottom-color: var(--color-accent);
+    box-shadow: none;
+  }
+
+  .sheet-title {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--color-accent);
+  }
+
+  .stat-sheet {
+    background: var(--color-panel);
+    border: none;
+    border-radius: 0;
+  }
+
+  .stat-sheet > header {
+    padding-bottom: 0.7rem;
+    margin-bottom: 0.7rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .stat-sheet h4 {
+    font-family: var(--font-sans-ui);
+    letter-spacing: 0.08em;
   }
 
   .portrait-thumb {
@@ -972,20 +1141,25 @@ html[data-theme='night'] {
     background: var(--identity, var(--color-border));
   }
 
-  /*
-   * Day hues are tuned for parchment. Night lifts them toward moonlit parchment
-   * so class/enemy identity still reads on the dark canopy.
-   */
-  :root[data-theme='night'] .name-identity {
-    color: color-mix(in srgb, var(--identity, var(--color-text)) 58%, #f3eee2);
+  .name-identity {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-text);
   }
+
+  /*
+   * Day hues are tuned for parchment. Night lifts the identity dot toward
+   * moonlit parchment so class/enemy identity still reads on the dark canopy.
+   */
 
   :root[data-theme='night'] .init-pill-identity {
     border-color: color-mix(in srgb, var(--identity) 50%, var(--color-border));
     background: color-mix(in srgb, var(--identity) 22%, var(--color-panel));
   }
 
-  :root[data-theme='night'] .identity-dot {
+  :root[data-theme='night'] .identity-dot,
+  :root[data-theme='night'] .identity-swatch {
     background: color-mix(in srgb, var(--identity) 65%, #f3eee2);
   }
 
@@ -1255,6 +1429,198 @@ html[data-theme='night'] {
     }
   }
 
+  /* ---------- Physical d20 (tumble, land, glow) ---------- */
+  .die-roll-slot {
+    position: relative;
+    min-width: 3.35rem;
+    min-height: 2.6rem;
+    padding: 0.1rem 0.35rem;
+  }
+
+  .die-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    perspective: 140px;
+  }
+
+  .die-shadow {
+    position: absolute;
+    bottom: 0.1rem;
+    left: 50%;
+    width: 1.55rem;
+    height: 0.35rem;
+    border-radius: 50%;
+    background: rgba(20, 16, 12, 0.35);
+    transform: translateX(-50%);
+    filter: blur(1px);
+  }
+
+  .die-body {
+    display: grid;
+    place-items: center;
+    transform-style: preserve-3d;
+    --die-spin-dir: 1;
+  }
+
+  .die-svg {
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 2px 2px rgba(20, 16, 12, 0.35));
+  }
+
+  .die-stone {
+    fill: color-mix(in srgb, var(--color-panel-2) 55%, #4a4034);
+    stroke: color-mix(in srgb, var(--color-border-strong) 70%, #c4a574);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+  }
+
+  .die-facet-l {
+    fill: color-mix(in srgb, #6a5c48 70%, var(--color-panel));
+  }
+
+  .die-facet-r {
+    fill: color-mix(in srgb, #3e362c 75%, var(--color-panel-2));
+  }
+
+  .die-facet-bl,
+  .die-facet-br,
+  .die-facet-b {
+    fill: color-mix(in srgb, #2c261f 80%, var(--color-panel-2));
+  }
+
+  .die-face {
+    fill: color-mix(in srgb, var(--color-panel) 35%, #d7c7a8);
+    stroke: color-mix(in srgb, var(--color-border-strong) 50%, #e8d7b0);
+    stroke-width: 0.7;
+    stroke-linejoin: round;
+  }
+
+  .die-num {
+    fill: var(--color-text);
+    font-family: var(--font-mono-stats);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .die-stage.is-rolling .die-body {
+    animation: die-tumble 1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .die-stage.is-rolling .die-shadow {
+    animation: die-shadow-bounce 1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .die-stage[data-spin='2'] .die-body,
+  .die-stage[data-spin='4'] .die-body,
+  .die-stage[data-spin='6'] .die-body {
+    --die-spin-dir: -1;
+  }
+
+  @keyframes die-tumble {
+    0% {
+      transform: translateY(-16px) rotateZ(0deg) rotateX(12deg) rotateY(-14deg) scale(0.72);
+    }
+    22% {
+      transform: translateY(-3px) rotateZ(calc(var(--die-spin-dir) * 150deg)) rotateX(-16deg)
+        rotateY(18deg) scale(1.08);
+    }
+    44% {
+      transform: translateY(-12px) rotateZ(calc(var(--die-spin-dir) * 310deg)) rotateX(14deg)
+        rotateY(-20deg) scale(0.9);
+    }
+    66% {
+      transform: translateY(-2px) rotateZ(calc(var(--die-spin-dir) * 470deg)) rotateX(-12deg)
+        rotateY(10deg) scale(1.1);
+    }
+    84% {
+      transform: translateY(4px) rotateZ(calc(var(--die-spin-dir) * 610deg)) rotateX(6deg)
+        rotateY(-6deg) scale(0.97);
+    }
+    100% {
+      transform: translateY(0) rotateZ(calc(var(--die-spin-dir) * 720deg)) rotateX(0deg)
+        rotateY(0deg) scale(1);
+    }
+  }
+
+  @keyframes die-shadow-bounce {
+    0%,
+    52% {
+      transform: translateX(-50%) scaleX(0.55);
+      opacity: 0.25;
+    }
+    28%,
+    76% {
+      transform: translateX(-50%) scaleX(1.15);
+      opacity: 0.45;
+    }
+    90% {
+      transform: translateX(-50%) scaleX(1.2);
+      opacity: 0.5;
+    }
+    100% {
+      transform: translateX(-50%) scaleX(1);
+      opacity: 0.35;
+    }
+  }
+
+  .die-stage.is-glowing .die-svg {
+    filter:
+      drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent))
+      drop-shadow(0 0 16px color-mix(in srgb, var(--color-accent) 55%, transparent));
+    animation: die-glow 850ms ease-out both;
+  }
+
+  .die-stage.is-glowing .die-face {
+    fill: color-mix(in srgb, var(--color-accent) 38%, #f3e6c8);
+    stroke: var(--color-accent);
+  }
+
+  .die-stage.is-glowing .die-num {
+    fill: var(--color-accent);
+  }
+
+  .die-stage.is-glowing .die-stone {
+    stroke: color-mix(in srgb, var(--color-accent) 55%, var(--color-border-strong));
+  }
+
+  @keyframes die-glow {
+    0% {
+      transform: scale(0.96);
+      filter:
+        drop-shadow(0 0 2px color-mix(in srgb, var(--color-accent) 40%, transparent));
+    }
+    40% {
+      transform: scale(1.08);
+      filter:
+        drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 90%, transparent))
+        drop-shadow(0 0 22px color-mix(in srgb, var(--color-accent) 70%, transparent));
+    }
+    100% {
+      transform: scale(1);
+      filter:
+        drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 70%, transparent))
+        drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent) 40%, transparent));
+    }
+  }
+
+  .field-landed {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  :root[data-theme='night'] .die-face {
+    fill: color-mix(in srgb, var(--color-panel) 40%, #8a7a62);
+  }
+
+  :root[data-theme='night'] .die-num {
+    fill: var(--color-text);
+  }
+
   /* Density presets (set on <html data-density>). */
   :root[data-density='compact'] .row-combat {
     padding-top: 0.35rem;
@@ -1277,8 +1643,17 @@ html[data-theme='night'] {
   }
 
   :root[data-shared='true'] .row-name {
-    font-size: 1.35rem;
-    width: 16rem;
+    font-size: 1.85rem;
+    width: auto;
+    flex: 1;
+  }
+
+  :root[data-shared='true'] .vital-pair {
+    font-size: 0.95rem;
+  }
+
+  :root[data-shared='true'] .hp-track {
+    height: 0.85rem;
   }
 
   :root[data-shared='true'] .row-hp {

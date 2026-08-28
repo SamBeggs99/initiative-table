@@ -174,7 +174,7 @@ export function SpellsPanel() {
           <button
             type="button"
             disabled={busy}
-            className="btn btn-sm"
+            className="btn btn-sm btn-ghost"
             onClick={() => void runSync()}
           >
             {busy ? 'Syncing…' : 'Sync'}
@@ -258,7 +258,9 @@ export function SpellsPanel() {
                   if (r.spell.origin === 'homebrew') setEditor(r.spell);
                 }}
               >
-                <span className="min-w-0 flex-1 truncate">{r.spell.name}</span>
+                <span className="name-identity min-w-0 flex-1 truncate">
+                  {r.spell.name}
+                </span>
                 <span className="shrink-0 font-mono-stats text-[10px] tabular-nums text-muted">
                   {spellLevelLabel(r.spell)}
                 </span>
@@ -286,7 +288,7 @@ export function SpellsPanel() {
             selected.spell.origin === 'homebrew' ? (
               <button
                 type="button"
-                className="btn btn-sm"
+                className="btn btn-sm btn-ghost"
                 onClick={() => {
                   setPreviewOpen(false);
                   setEditor(selected.spell);

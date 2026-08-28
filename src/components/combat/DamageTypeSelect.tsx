@@ -4,15 +4,17 @@ export function DamageTypeSelect({
   value,
   onChange,
   id,
+  className,
 }: {
   value: string;
   onChange: (type: string) => void;
   id?: string;
+  className?: string;
 }) {
   return (
     <select
       id={id}
-      className="field w-[7.25rem] shrink-0 py-0.5 text-xs capitalize"
+      className={`field shrink-0 py-0.5 text-xs capitalize ${className ?? 'w-[7.25rem]'}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label="Damage type"

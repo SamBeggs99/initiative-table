@@ -89,6 +89,9 @@ export function DevGallery({ onBack }: { onBack: () => void }) {
             <button type="button" className="btn btn-ghost">
               Ghost
             </button>
+            <button type="button" className="btn btn-text">
+              Text
+            </button>
             <button type="button" className="btn btn-sm">
               Small
             </button>
@@ -102,6 +105,7 @@ export function DevGallery({ onBack }: { onBack: () => void }) {
           <h2 className="section-title section-title-leaf">Fields & chips</h2>
           <div className="flex flex-wrap items-center gap-2">
             <input className="field" placeholder="field" defaultValue="14" />
+            <input className="field-tape" placeholder="tape" defaultValue="12" />
             <span className="chip">chip</span>
             <span
               className="defense-chip defense-chip-resist"
@@ -145,8 +149,11 @@ export function DevGallery({ onBack }: { onBack: () => void }) {
               <div className="flex items-center gap-2.5">
                 <span className="init-pill init-pill-active">18</span>
                 <span className="h-4 w-[3px] rounded-full bg-heal" />
-                <span className="row-name w-36 text-sm font-semibold">Active PC</span>
-                <span className="chip">AC 16</span>
+                <span className="identity-swatch" style={{ '--identity': '#2f7d4f' } as CSSProperties} />
+                <span className="row-name w-36 text-sm">Active PC</span>
+                <span className="vital-pair">
+                  AC <b>16</b>
+                </span>
                 <span className="row-hp font-mono-stats text-sm">24/30</span>
               </div>
             </div>
@@ -155,12 +162,13 @@ export function DevGallery({ onBack }: { onBack: () => void }) {
               style={{ '--identity': '#3a54a2' } as CSSProperties}
             >
               <div className="flex items-center gap-2.5">
-                <span className="init-pill init-pill-identity">14</span>
+                <span className="init-pill">14</span>
                 <span className="h-4 w-[3px] rounded-full bg-heal" />
-                <span className="row-name name-identity w-36 text-sm font-semibold">
-                  Wizard (identity)
+                <span className="identity-swatch" />
+                <span className="row-name w-36 text-sm">Wizard</span>
+                <span className="vital-pair">
+                  AC <b>12</b>
                 </span>
-                <span className="chip">AC 12</span>
               </div>
             </div>
             <div className="row-combat row-dead px-3 py-2">

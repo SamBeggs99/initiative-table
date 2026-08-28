@@ -512,18 +512,20 @@ export function InitiativeTracker({
         )}
 
         <div className="flex w-full flex-wrap items-center gap-1 sm:ml-auto sm:w-auto">
+          {!sharedScreen && (
+            <button
+              type="button"
+              disabled={!hasCampaign}
+              className="btn btn-ghost"
+              onClick={() => setLibraryOpen(true)}
+              title="Build enemy packs and run them with your party"
+            >
+              Library
+            </button>
+          )}
           <button
             type="button"
-            disabled={!hasCampaign}
-            className="btn btn-accent"
-            onClick={() => setLibraryOpen(true)}
-            title="Build enemy packs and run them with your party"
-          >
-            Library
-          </button>
-          <button
-            type="button"
-            className={`btn ${sharedScreen ? 'btn-on' : ''}`}
+            className={`btn btn-ghost ${sharedScreen ? 'btn-on' : ''}`}
             onClick={toggleShared}
             title="Hide side panels, enlarge names, band HP for the table"
           >
@@ -535,7 +537,7 @@ export function InitiativeTracker({
             <div className="relative" ref={moreRef}>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-ghost"
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 onClick={() => setMoreOpen((v) => !v)}
@@ -640,7 +642,7 @@ export function InitiativeTracker({
           <button
             type="button"
             disabled={!hasCampaign}
-            className="btn"
+            className="btn btn-ghost"
             onClick={prevTurn}
             title="Previous turn (←)"
           >
@@ -673,25 +675,29 @@ export function InitiativeTracker({
             </button>
           )}
 
-          <button
-            type="button"
-            disabled={!hasCampaign || !combat.started}
-            className="btn btn-ghost"
-            onClick={() => requestCombatExit('end-fight')}
-            title="Stop the round clock. Party stays; enemies leave."
-          >
-            <span className="sm:hidden">End</span>
-            <span className="hidden sm:inline">End fight</span>
-          </button>
-          <button
-            type="button"
-            disabled={!canClearCanvas}
-            className="btn"
-            onClick={() => requestCombatExit('clear')}
-            title="Remove enemies, loot, and turn order. Party stays on the tracker."
-          >
-            Clear
-          </button>
+          {!sharedScreen && (
+            <button
+              type="button"
+              disabled={!hasCampaign || !combat.started}
+              className="btn btn-ghost"
+              onClick={() => requestCombatExit('end-fight')}
+              title="Stop the round clock. Party stays; enemies leave."
+            >
+              <span className="sm:hidden">End</span>
+              <span className="hidden sm:inline">End fight</span>
+            </button>
+          )}
+          {!sharedScreen && (
+            <button
+              type="button"
+              disabled={!canClearCanvas}
+              className="btn btn-ghost"
+              onClick={() => requestCombatExit('clear')}
+              title="Remove enemies, loot, and turn order. Party stays on the tracker."
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -727,7 +733,7 @@ export function InitiativeTracker({
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn btn-ghost"
                 disabled={!hasCampaign}
                 onClick={() => setLibraryOpen(true)}
               >
@@ -821,7 +827,7 @@ export function InitiativeTracker({
           </span>
           <input
             ref={bulkDmgRef}
-            className="field w-36 py-0.5 font-mono-stats text-sm tabular-nums"
+            className="field-tape w-36 py-0.5 font-mono-stats text-sm tabular-nums"
             value={bulkDmg}
             onChange={(e) => setBulkDmg(e.target.value)}
             onKeyDown={(e) => {
@@ -858,14 +864,14 @@ export function InitiativeTracker({
           </button>
           <button
             type="button"
-            className="btn btn-sm"
+            className="btn btn-sm btn-ghost"
             onClick={() => setBulkOpen(true)}
           >
             Save
           </button>
           <button
             type="button"
-            className="btn btn-sm"
+            className="btn btn-sm btn-ghost"
             onClick={() => {
               const id =
                 (focusedId && selectedIds.has(focusedId)

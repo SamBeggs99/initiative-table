@@ -73,7 +73,7 @@ function PartyCard({
 }) {
   return (
     <div
-      className="rounded border border-border bg-panel-2 p-3 text-sm"
+      className="stat-sheet p-3 text-sm"
       style={
         {
           '--identity': hueHex(pcHueId(member.class, member.name)),
@@ -83,7 +83,7 @@ function PartyCard({
       <header className="mb-2 flex items-start gap-3">
         <PortraitThumb src={member.portraitDataUrl} alt="" size="md" />
         <div className="min-w-0">
-          <h3 className="name-identity text-lg font-semibold">{member.name}</h3>
+          <h3 className="sheet-title text-2xl leading-tight">{member.name}</h3>
           <p className="text-xs italic text-muted">
             Level {member.level} {member.class || 'adventurer'}
             {member.ancestry ? ` · ${member.ancestry}` : ''}
@@ -109,7 +109,7 @@ function NpcCard({ npc, combatant }: { npc: NpcRecord; combatant: Combatant }) {
   const bits = [npc.role, npc.faction, npc.location].filter(Boolean).join(' · ');
   return (
     <div
-      className="rounded border border-border bg-panel-2 p-3 text-sm"
+      className="stat-sheet p-3 text-sm"
       style={
         {
           '--identity': hueHex(npcHueId(npc.id || npc.name)),
@@ -123,7 +123,7 @@ function NpcCard({ npc, combatant }: { npc: NpcRecord; combatant: Combatant }) {
           size="md"
         />
         <div className="min-w-0">
-          <h3 className="name-identity text-lg font-semibold">{npc.name}</h3>
+          <h3 className="sheet-title text-2xl leading-tight">{npc.name}</h3>
           <p className="text-xs italic text-muted">
             {npc.kind === 'statted' ? 'Statted NPC' : 'Character NPC'}
             {bits ? ` · ${bits}` : ''}
@@ -204,8 +204,8 @@ export function CombatantInspect({
   if (npc) return <NpcCard npc={npc} combatant={combatant} />;
 
   return (
-    <div className="rounded border border-border bg-panel-2 p-3 text-sm">
-      <h3 className="text-lg font-semibold text-accent">{combatant.name}</h3>
+    <div className="stat-sheet p-3 text-sm">
+      <h3 className="sheet-title text-2xl leading-tight">{combatant.name}</h3>
       <p className="mb-2 text-xs italic text-muted">
         {combatant.kind === 'pc'
           ? 'Player character'

@@ -33,20 +33,27 @@ describe('combatantRole', () => {
 });
 
 describe('fillMissingInitiatives', () => {
-  const rolled = getSystemAdapter('dnd5e');
-  const static_ = getSystemAdapter('pf2e');
+  const dnd5e = getSystemAdapter('dnd5e');
+  const pf2e = getSystemAdapter('pf2e');
 
   it('keeps initiatives the DM already entered', () => {
     const c = createCombatant({ name: 'Kael', kind: 'pc', initiative: 17 });
-    expect(fillMissingInitiatives([c], 'each', rolled)[0].initiative).toBe(17);
-    expect(fillMissingInitiatives([c], 'blank', rolled)[0].initiative).toBe(17);
+    expect(fillMissingInitiatives([c], 'each', dnd5e)[0].initiative).toBe(17);
+    expect(fillMissingInitiatives([c], 'blank', dnd5e)[0].initiative).toBe(17);
   });
 
-  it('uses the system rule instead of a d20 when initiative is a static score', () => {
-    const c = createCombatant({ name: 'Amiri', kind: 'pc', perception: 9 });
-    expect(fillMissingInitiatives([c], 'each', static_)[0].initiative).toBe(9);
-    // Group mode has nothing to share when nothing is rolled.
-    expect(fillMissingInitiatives([c], 'group', static_)[0].initiative).toBe(9);
+  it('rolls PF2e initiative as d20 + Dex too, not a static Perception score', () => {
+    const c = createCombatant({ name: 'Amiri', kind: 'pc', dex: 14, perception: 9 });
+    const init = fillMissingInitiatives([c], 'each', pf2e)[0].initiative!;
+    expect(init).toBeGreaterThanOrEqual(3);
+    expect(init).toBeLessThanOrEqual(22);
+  });
+
+  it('shares one roll across the batch in group mode, for PF2e too', () => {
+    const a = createCombatant({ name: 'Goblin A', kind: 'npc', dex: 14 });
+    const b = createCombatant({ name: 'Goblin B', kind: 'npc', dex: 10 });
+    const [ra, rb] = fillMissingInitiatives([a, b], 'group', pf2e);
+    expect(ra.initiative! - rb.initiative!).toBe(2);
   });
 });
 

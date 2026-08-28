@@ -69,6 +69,19 @@ export function parseDamageField(raw: string): HpFieldParsed | null {
 }
 
 /**
+ * Combat-row HP field syntax. Shown in Ctrl+K and the `?` cheat sheet so the
+ * tape itself can stay empty (no placeholder ghost text).
+ */
+export const HP_FIELD_LEGEND: { keys: string; action: string }[] = [
+  { keys: '12 or -12', action: 'Damage (temp HP first)' },
+  { keys: '+8 or h8', action: 'Heal, capped at max HP' },
+  { keys: '*5', action: 'Add 5 temp HP' },
+  { keys: 't8', action: 'Replace temp HP with 8' },
+  { keys: '2d6+3', action: 'Roll dice as damage' },
+  { keys: '12 fire', action: 'Damage of that type' },
+];
+
+/**
  * Row / selection HP field: `12` / `-12` damage, `h12` / `+12` heal (capped
  * at max HP), `*5` add temp, `t8` replace temp, or a dice expr (`2d6+3`
  * damage, `+2d8` heal, `*2d4` temp). Optional trailing type (`12 fire`).

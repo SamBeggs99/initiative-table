@@ -287,7 +287,6 @@ export function CombatantRow({
                   damageInputRef?.(el);
                 }}
                 className="field w-36 py-0.5 font-mono-stats text-sm tabular-nums"
-                placeholder="12 · +8 · *5"
                 value={dmg}
                 onChange={(e) => setDmg(e.target.value)}
                 onKeyDown={(e) => {

@@ -87,6 +87,7 @@ export type PaletteIntent =
       suggestions: string[];
     }
   | { type: 'empty'; preview: string; runnable: false }
+  | { type: 'help'; preview: string; runnable: false }
   | { type: 'unknown'; preview: string; runnable: false; suggestions: string[] };
 
 const COMMANDS = [
@@ -139,7 +140,15 @@ export function parsePaletteInput(raw: string, ctx: PaletteContext): PaletteInte
   if (!input) {
     return {
       type: 'empty',
-      preview: 'Type a command — e.g. “4 goblins”, “dmg kael 14”, “next”',
+      preview: 'HP field and commands — leave blank or type help',
+      runnable: false,
+    };
+  }
+
+  if (/^(help|\?|hp|legend)$/i.test(input)) {
+    return {
+      type: 'help',
+      preview: 'Combat HP field and palette commands',
       runnable: false,
     };
   }

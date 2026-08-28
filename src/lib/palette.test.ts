@@ -25,6 +25,13 @@ describe('parsePaletteInput', () => {
     expect(parsePaletteInput('back', emptyCtx()).type).toBe('back');
   });
 
+  it('treats blank, help, and ? as the legend', () => {
+    expect(parsePaletteInput('', emptyCtx()).type).toBe('empty');
+    expect(parsePaletteInput('help', emptyCtx()).type).toBe('help');
+    expect(parsePaletteInput('?', emptyCtx()).type).toBe('help');
+    expect(parsePaletteInput('hp', emptyCtx()).type).toBe('help');
+  });
+
   it('parses start, party to combat, and new pc', () => {
     expect(parsePaletteInput('start', emptyCtx())).toMatchObject({
       type: 'start',

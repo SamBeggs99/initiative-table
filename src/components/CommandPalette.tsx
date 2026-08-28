@@ -12,6 +12,7 @@ import { selectActiveCampaign, selectActiveCombat, useStore } from '../store';
 import type { Spell, StatBlock } from '../types';
 import { StatBlockPreview } from './statblock/StatBlockPreview';
 import { SpellPreview } from './spells/SpellPreview';
+import { HpFieldLegend } from './combat/HpFieldLegend';
 
 export function CommandPalette({
   open,
@@ -232,6 +233,39 @@ export function CommandPalette({
           )}
         </div>
 
+        {(intent.type === 'empty' || intent.type === 'help') && (
+          <div className="max-h-72 space-y-3 overflow-auto px-3 py-2">
+            <HpFieldLegend />
+            <section>
+              <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                Palette
+              </h3>
+              <ul className="space-y-1 text-sm">
+                <li className="flex justify-between gap-4">
+                  <kbd className="chip font-mono-stats shrink-0">4 goblins</kbd>
+                  <span className="text-right text-muted">Add from the bestiary</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <kbd className="chip font-mono-stats shrink-0">dmg kael 14</kbd>
+                  <span className="text-right text-muted">Damage a combatant</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <kbd className="chip font-mono-stats shrink-0">heal grix 8</kbd>
+                  <span className="text-right text-muted">Heal a combatant</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <kbd className="chip font-mono-stats shrink-0">spell fireball</kbd>
+                  <span className="text-right text-muted">Open a spell</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <kbd className="chip font-mono-stats shrink-0">next</kbd>
+                  <span className="text-right text-muted">Advance the turn</span>
+                </li>
+              </ul>
+            </section>
+          </div>
+        )}
+
         {suggestions.length > 0 && (
           <ul className="max-h-40 overflow-auto px-1 py-1 text-sm">
             {suggestions.map((s) => (
@@ -272,7 +306,7 @@ export function CommandPalette({
         )}
 
         <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted">
-          Enter runs · Esc closes · Ctrl+K · actions go through the store
+          Enter runs · Esc closes · Ctrl+K · type help for this legend
         </div>
       </div>
     </div>

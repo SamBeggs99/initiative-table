@@ -18,6 +18,7 @@ import { BloomCluster } from '../ornament/Botanical';
 import { BulkSaveDialog } from './BulkSaveDialog';
 import { CombatantInspect } from './CombatantInspect';
 import { CombatantRow } from './CombatantRow';
+import { HpFieldLegend } from './HpFieldLegend';
 import { CombatLootPanel } from './CombatLootPanel';
 import { ConcentrationBanner } from './ConcentrationBanner';
 import { DamageTypeSelect } from './DamageTypeSelect';
@@ -821,7 +822,6 @@ export function InitiativeTracker({
           <input
             ref={bulkDmgRef}
             className="field w-36 py-0.5 font-mono-stats text-sm tabular-nums"
-            placeholder="12 · +8 · *5"
             value={bulkDmg}
             onChange={(e) => setBulkDmg(e.target.value)}
             onKeyDown={(e) => {
@@ -987,14 +987,22 @@ export function InitiativeTracker({
                 Esc
               </button>
             </div>
-            <ul className="space-y-1.5 text-sm">
-              {SHORTCUTS.map((s) => (
-                <li key={s.keys} className="flex justify-between gap-4">
-                  <kbd className="chip font-mono-stats shrink-0">{s.keys}</kbd>
-                  <span className="text-muted">{s.action}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="max-h-[70vh] space-y-4 overflow-auto">
+              <HpFieldLegend />
+              <section>
+                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                  Keys
+                </h3>
+                <ul className="space-y-1.5 text-sm">
+                  {SHORTCUTS.map((s) => (
+                    <li key={s.keys} className="flex justify-between gap-4">
+                      <kbd className="chip font-mono-stats shrink-0">{s.keys}</kbd>
+                      <span className="text-muted">{s.action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
           </div>
         </div>
       )}

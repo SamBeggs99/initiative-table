@@ -275,7 +275,7 @@ export function BestiaryPanel() {
           <span className="sr-only">Search creatures</span>
           <input
             className="field w-full text-sm"
-            placeholder="Search, then Enter or +"
+            placeholder="Search, then Enter or +Combat"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -386,12 +386,12 @@ export function BestiaryPanel() {
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-accent grid h-8 w-8 shrink-0 place-items-center px-0 text-base leading-none"
+                className="btn btn-sm btn-accent shrink-0"
                 aria-label={`Add ${quantity} ${r.creature.name} to combat`}
                 title={`Add ${quantity} to combat`}
                 onClick={() => addCreature(r.creature, quantity)}
               >
-                +
+                +Combat
               </button>
             </li>
           ))
@@ -512,7 +512,7 @@ export function BestiaryPanel() {
                 className="btn btn-sm btn-accent"
                 onClick={() => addCreature(selected.creature, quantity)}
               >
-                Add to combat
+                +Combat
               </button>
             </>
           }

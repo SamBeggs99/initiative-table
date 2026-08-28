@@ -19,6 +19,15 @@ export interface Entry {
    * “only while bloodied”, etc.). Empty/undefined = none.
    */
   requirements?: string;
+  /**
+   * How long the activity takes or lasts (“1 minute”, “until end of turn”).
+   * Empty/undefined = instantaneous / not timed.
+   */
+  duration?: string;
+  /** Save DC printed on the action (Fireball DC 15, Breath Weapon DC 18). */
+  saveDc?: number;
+  /** Attack bonus printed on the action (+7 to hit). */
+  attackBonus?: number;
 }
 
 export interface ActiveCondition {

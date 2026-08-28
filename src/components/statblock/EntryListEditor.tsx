@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { DAMAGE_TYPES } from '../../lib/damage-types';
-import { damageFieldsFromDesc, requirementsFromDesc } from '../../lib/parse';
+import {
+  attackBonusFromDesc,
+  damageFieldsFromDesc,
+  durationFromDesc,
+  requirementsFromDesc,
+  saveDcFromDesc,
+} from '../../lib/parse';
+import { formatModifier } from '../../lib/statblock-derived';
 import type { Entry } from '../../types';
 
 interface EntryListEditorProps {
@@ -15,6 +22,10 @@ interface EntryListEditorProps {
   showDamage?: boolean;
   /** Checkbox + note for special use conditions. */
   showRequirements?: boolean;
+  /** Checkbox + note for how long the activity takes or lasts. */
+  showDuration?: boolean;
+  /** Save DC and attack-bonus fields. */
+  showOffense?: boolean;
 }
 
 export function EntryListEditor({
@@ -26,6 +37,8 @@ export function EntryListEditor({
   showActionCosts,
   showDamage,
   showRequirements,
+  showDuration,
+  showOffense,
 }: EntryListEditorProps) {
   const listRef = useRef<HTMLUListElement>(null);
   const [focusNew, setFocusNew] = useState(false);
@@ -214,6 +227,63 @@ export function EntryListEditor({
               </div>
             )}
 
+            {showOffense && (
+              <div className="mb-1.5 flex flex-wrap items-end gap-1.5">
+                <label className="w-[5.5rem] text-[10px] text-muted">
+                  Attack
+                  <input
+                    type="number"
+                    className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
+                    value={entry.attackBonus ?? ''}
+                    placeholder="+7"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      update(index, {
+                        attackBonus: raw === '' ? undefined : Number(raw),
+                      });
+                    }}
+                  />
+                </label>
+                <label className="w-[5.5rem] text-[10px] text-muted">
+                  DC
+                  <input
+                    type="number"
+                    className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
+                    value={entry.saveDc ?? ''}
+                    placeholder="15"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      update(index, {
+                        saveDc: raw === '' ? undefined : Number(raw),
+                      });
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  title="Fill attack bonus and DC from the description"
+                  onClick={() => {
+                    const attackBonus = attackBonusFromDesc(entry.desc);
+                    const saveDc = saveDcFromDesc(entry.desc);
+                    update(index, {
+                      ...(attackBonus != null ? { attackBonus } : {}),
+                      ...(saveDc != null ? { saveDc } : {}),
+                    });
+                  }}
+                >
+                  From desc
+                </button>
+                {(entry.attackBonus != null || entry.saveDc != null) && (
+                  <span className="mb-1 font-mono-stats text-[11px] tabular-nums text-muted">
+                    {entry.attackBonus != null && formatModifier(entry.attackBonus)}
+                    {entry.attackBonus != null && entry.saveDc != null && ' · '}
+                    {entry.saveDc != null && `DC ${entry.saveDc}`}
+                  </span>
+                )}
+              </div>
+            )}
+
             {showRequirements && (
               <div className="mb-1.5 space-y-1">
                 <label className="inline-flex items-center gap-1.5 text-[11px] text-muted">
@@ -250,6 +320,51 @@ export function EntryListEditor({
                         const detected = requirementsFromDesc(entry.desc);
                         if (!detected) return;
                         update(index, { requirements: detected });
+                      }}
+                    >
+                      From desc
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showDuration && (
+              <div className="mb-1.5 space-y-1">
+                <label className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+                  <input
+                    type="checkbox"
+                    className="accent-[var(--color-accent)]"
+                    checked={entry.duration !== undefined}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const fromDesc = durationFromDesc(entry.desc);
+                        update(index, { duration: fromDesc ?? '' });
+                      } else {
+                        update(index, { duration: undefined });
+                      }
+                    }}
+                  />
+                  Time
+                </label>
+                {entry.duration !== undefined && (
+                  <div className="flex flex-wrap items-start gap-1.5">
+                    <input
+                      className="field min-w-0 flex-1 py-1 text-xs"
+                      value={entry.duration}
+                      placeholder="e.g. 1 minute, 10 minutes, until end of turn"
+                      onChange={(e) =>
+                        update(index, { duration: e.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      title="Fill from a Duration line in the description"
+                      onClick={() => {
+                        const detected = durationFromDesc(entry.desc);
+                        if (!detected) return;
+                        update(index, { duration: detected });
                       }}
                     >
                       From desc

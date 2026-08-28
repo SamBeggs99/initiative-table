@@ -1,4 +1,5 @@
 import { formatEntryDamage } from '../../lib/damage-types';
+import { formatEntryOffense } from '../../lib/parse';
 import {
   actionCostGlyph,
   actionCostLabel,
@@ -44,20 +45,22 @@ export function ActionStrip({
             : (cost as 1 | 2 | 3);
         const tooExpensive = showCosts && spend > 0 && remaining < spend;
         const dmg = formatEntryDamage(a.damage);
+        const offense = formatEntryOffense(a);
         const req = a.requirements?.trim();
+        const time = a.duration?.trim();
         return (
           <button
             key={a.name}
             type="button"
-            className={`pip max-w-[14rem] truncate font-mono-stats ${
+            className={`pip max-w-[16rem] truncate font-mono-stats ${
               tooExpensive ? 'pip-spent opacity-60' : ''
             }`}
             disabled={disabled || tooExpensive}
-            title={`${a.name}${dmg ? ` — ${dmg}` : ''}${
-              req ? `\nRequirements: ${req}` : ''
-            } — ${showCosts ? actionCostLabel(cost) : 'Use'}${
-              a.desc ? `\n${a.desc}` : ''
-            }`}
+            title={`${a.name}${offense ? ` — ${offense}` : ''}${dmg ? ` — ${dmg}` : ''}${
+              time ? `\nTime: ${time}` : ''
+            }${req ? `\nRequirements: ${req}` : ''} — ${
+              showCosts ? actionCostLabel(cost) : 'Use'
+            }${a.desc ? `\n${a.desc}` : ''}`}
             onClick={() => onUse(a, cost)}
           >
             {showCosts && (
@@ -68,6 +71,14 @@ export function ActionStrip({
               </>
             )}
             <span className="font-sans text-[10px] font-semibold">{a.name}</span>
+            {offense && (
+              <span className="ml-1 text-[9px] tabular-nums text-text">{offense}</span>
+            )}
+            {time && (
+              <span className="ml-1 text-[9px] text-amber" aria-label={`Time: ${time}`}>
+                {time}
+              </span>
+            )}
             {req && (
               <span className="ml-1 text-[9px] text-amber" aria-label="Has requirements">
                 req

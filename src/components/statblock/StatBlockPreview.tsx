@@ -6,6 +6,7 @@ import {
   proficiencyBonusFromCr,
 } from '../../lib/statblock-derived';
 import { formatEntryDamage } from '../../lib/damage-types';
+import { formatEntryOffense } from '../../lib/parse';
 import {
   actionCostGlyph,
   actionCostLabel,
@@ -55,7 +56,9 @@ function EntryBlock({
           const tooExpensive =
             live != null && showActionCosts && spend > 0 && live.remaining < spend;
           const dmg = formatEntryDamage(e.damage);
+          const offense = formatEntryOffense(e);
           const req = e.requirements?.trim();
+          const time = e.duration?.trim();
           const canUse = live != null && (showActionCosts || Boolean(e.damage));
 
           return (
@@ -71,11 +74,21 @@ function EntryBlock({
               )}
               <div className="min-w-0 flex-1">
                 <span className="font-semibold italic text-text">{e.name}.</span>
+                {offense && (
+                  <span className="ml-1.5 font-mono-stats text-[11px] tabular-nums text-text">
+                    {offense}
+                  </span>
+                )}
                 {dmg && (
                   <span className="ml-1.5 font-mono-stats text-[11px] tabular-nums text-damage">
                     {dmg}
                   </span>
                 )}{' '}
+                {time && (
+                  <span className="text-[11px] text-amber">
+                    <span className="font-semibold not-italic">Time</span> {time}{' '}
+                  </span>
+                )}
                 {req && (
                   <span className="text-[11px] text-amber">
                     <span className="font-semibold not-italic">Requirements</span>{' '}

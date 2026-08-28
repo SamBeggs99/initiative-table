@@ -5,9 +5,11 @@ import {
   groupSpellRefs,
   resolveSpellRefMeta,
   resolveSpellcasting,
+  spellOffenseKind,
 } from '../../lib/creature-spells';
 import { formatEntryDamage } from '../../lib/damage-types';
 import { actionCostGlyph, actionCostLabel } from '../../lib/pf2e-actions';
+import { formatModifier } from '../../lib/statblock-derived';
 import type { Spell, StatBlock } from '../../types';
 import { SpellPreview } from '../spells/SpellPreview';
 
@@ -62,12 +64,16 @@ export function CreatureSpellList({ block }: { block: StatBlock }) {
         Spells
       </h4>
       {casting ? (
-        <p className="mt-1.5 text-sm text-text">
-          <span className="font-semibold italic">Spellcasting.</span>{' '}
-          <span className="font-mono-stats tabular-nums text-text">
-            {formatSpellcastingLine(casting, block.system)}
+        <div className="mt-1.5 flex flex-wrap items-end gap-x-4 gap-y-1">
+          <span className="vital-pair">
+            Spell DC <b>{casting.saveDc}</b>
           </span>
-        </p>
+          <span className="vital-pair">
+            Attack <b>{formatModifier(casting.attackBonus)}</b>
+          </span>
+          <span className="text-[11px] text-muted">{casting.abilityLabel}</span>
+          <span className="sr-only">{formatSpellcastingLine(casting, block.system)}</span>
+        </div>
       ) : (
         <p className="mt-1.5 text-[11px] text-muted">
           Set a spellcasting ability to show save DC and attack bonus.
@@ -81,10 +87,22 @@ export function CreatureSpellList({ block }: { block: StatBlock }) {
                 {group.label}.
               </span>
               {group.spells.map((ref, i) => {
+                const catalogSpell = catalog.get(ref.id);
                 const lost = catalogReady && !catalog.has(ref.id);
-                const meta = resolveSpellRefMeta(ref, catalog.get(ref.id));
+                const meta = resolveSpellRefMeta(ref, catalogSpell);
                 const dmg = formatEntryDamage(meta.damage);
                 const showPf2e = block.system === 'pf2e';
+                const kind = catalogSpell
+                  ? spellOffenseKind(catalogSpell.desc)
+                  : null;
+                const cue =
+                  casting && kind
+                    ? kind === 'attack'
+                      ? formatModifier(casting.attackBonus)
+                      : kind === 'save'
+                        ? `DC ${casting.saveDc}`
+                        : `DC ${casting.saveDc} · ${formatModifier(casting.attackBonus)}`
+                    : null;
                 return (
                   <span key={ref.id} className="inline-flex items-baseline gap-x-1">
                     {i > 0 && <span className="text-muted">·</span>}
@@ -122,6 +140,11 @@ export function CreatureSpellList({ block }: { block: StatBlock }) {
                         {dmg}
                       </span>
                     )}
+                    {cue && (
+                      <span className="font-mono-stats text-[11px] tabular-nums text-text">
+                        {cue}
+                      </span>
+                    )}
                   </span>
                 );
               })}
@@ -131,7 +154,11 @@ export function CreatureSpellList({ block }: { block: StatBlock }) {
       )}
       {openId && openSpell && (
         <div className="mt-2">
-          <SpellPreview spell={openSpell} />
+          <SpellPreview
+            spell={openSpell}
+            saveDc={casting?.saveDc}
+            attackBonus={casting?.attackBonus}
+          />
         </div>
       )}
       {openId && !openSpell && catalogReady && !catalog.has(openId) && (

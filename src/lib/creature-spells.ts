@@ -209,6 +209,21 @@ export function formatSpellcastingLine(
   return `Spell save DC ${casting.saveDc}, ${hit} to hit (${casting.abilityLabel})`;
 }
 
+/** Whether a spell text is a save, an attack, or both — for showing DC / +hit. */
+export function spellOffenseKind(
+  desc: string,
+): 'attack' | 'save' | 'both' | null {
+  const attack = /\b(?:spell|melee|ranged)\s+attack\b/i.test(desc);
+  const save =
+    /\bsaving throw\b|\bmust (?:attempt|succeed)\b|\b(?:Fortitude|Reflex|Will) save\b|\bbasic (?:Fortitude|Reflex|Will)\b/i.test(
+      desc,
+    );
+  if (attack && save) return 'both';
+  if (attack) return 'attack';
+  if (save) return 'save';
+  return null;
+}
+
 export function patchSpellcasting(
   current: StatBlock['spellcasting'],
   patch: {

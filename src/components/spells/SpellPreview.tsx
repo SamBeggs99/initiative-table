@@ -1,19 +1,28 @@
 import { actionCostGlyph } from '../../lib/pf2e-actions';
 import { spellLevelLabel } from '../../lib/spells';
+import { formatModifier } from '../../lib/statblock-derived';
+import { spellOffenseKind } from '../../lib/creature-spells';
 import type { Spell } from '../../types';
 
 export function SpellPreview({
   spell,
   hideTitle = false,
+  saveDc,
+  attackBonus,
 }: {
   spell: Spell;
   hideTitle?: boolean;
+  saveDc?: number;
+  attackBonus?: number;
 }) {
   const traditions = spell.pf2e?.traditions?.length
     ? spell.pf2e.traditions
     : spell.classes;
   const traits = spell.pf2e?.traits ?? [];
   const cost = spell.pf2e?.actions;
+  const kind = spellOffenseKind(spell.desc);
+  const emphasizeDc = kind !== 'attack';
+  const emphasizeHit = kind !== 'save';
 
   return (
     <article className="stat-sheet h-full overflow-auto p-3 text-sm">
@@ -30,6 +39,35 @@ export function SpellPreview({
           <p className="mt-1 text-[11px] text-muted">{traits.join(' · ')}</p>
         )}
       </header>
+
+      {(saveDc != null || attackBonus != null) && (
+        <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+          {saveDc != null && (
+            <span
+              className={
+                emphasizeDc ? 'vital-pair' : 'text-[11px] tabular-nums text-muted'
+              }
+            >
+              Spell DC{' '}
+              {emphasizeDc ? <b>{saveDc}</b> : <span>{saveDc}</span>}
+            </span>
+          )}
+          {attackBonus != null && (
+            <span
+              className={
+                emphasizeHit ? 'vital-pair' : 'text-[11px] tabular-nums text-muted'
+              }
+            >
+              Attack{' '}
+              {emphasizeHit ? (
+                <b>{formatModifier(attackBonus)}</b>
+              ) : (
+                <span>{formatModifier(attackBonus)}</span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       <dl className="mt-2 space-y-0.5 font-mono-stats text-xs tabular-nums">
         <div>

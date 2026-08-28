@@ -57,7 +57,11 @@ const ORDINAL: Record<string, number> = {
 };
 
 export function parseAttack(text: string): ParsedAttack | null {
-  const m = normalizeDashes(text).match(/([+-]\d+)\s*to hit/i);
+  const src = normalizeDashes(text);
+  const m =
+    src.match(/([+-]\d+)\s*to hit/i) ||
+    src.match(/\b(?:spell\s+)?attack(?:\s+modifier)?\s+([+-]\d+)/i) ||
+    src.match(/\bstrike\s+([+-]\d+)/i);
   if (!m) return null;
   return { toHit: Number(m[1]) };
 }
@@ -125,7 +129,7 @@ export function enrichEntryDamage(entry: Entry): Entry {
 export function requirementsFromDesc(desc: string): string | undefined {
   const src = normalizeDashes(desc);
   const m = src.match(
-    /\b(?:Requirements?|Prerequisites?)\s*[:.]?\s*(.+?)(?=\s*(?:Trigger|Effect|Success|Failure|Critical|Frequency|Saving Throw|Hit:|$))/is,
+    /\b(?:Requirements?|Prerequisites?)\s*[:.]?\s*(.+?)(?=\s*(?:Trigger|Effect|Success|Failure|Critical|Frequency|Duration|Saving Throw|Hit:|$))/is,
   );
   const text = m?.[1]?.replace(/\s+/g, ' ').trim();
   return text || undefined;
@@ -137,9 +141,69 @@ export function enrichEntryRequirements(entry: Entry): Entry {
   return requirements ? { ...entry, requirements } : entry;
 }
 
-/** Fill structured damage + requirements from free-text when missing. */
+/**
+ * Pull a Duration clause, or a “lasts for …” phrase, from action text.
+ * Labelled Duration stops at the first period so a later DC is not swallowed.
+ */
+export function durationFromDesc(desc: string): string | undefined {
+  const src = normalizeDashes(desc);
+  const labelled = src.match(/\bDuration\s*[:.]?\s*([^.]+)/i);
+  const labelledText = labelled?.[1]?.replace(/\s+/g, ' ').trim();
+  if (labelledText) return labelledText;
+  const lasts = src.match(/\blasts for\s+([^.;]+)/i);
+  const lastsText = lasts?.[1]?.replace(/\s+/g, ' ').trim();
+  return lastsText || undefined;
+}
+
+export function enrichEntryDuration(entry: Entry): Entry {
+  if (entry.duration !== undefined) return entry;
+  const duration = durationFromDesc(entry.desc);
+  return duration ? { ...entry, duration } : entry;
+}
+
+export function saveDcFromDesc(desc: string): number | undefined {
+  const parsed = parseSaveDC(desc);
+  if (parsed) return parsed.dc;
+  const m = normalizeDashes(desc).match(/\bDC\s*(\d+)/i);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export function attackBonusFromDesc(desc: string): number | undefined {
+  const parsed = parseAttack(desc);
+  return parsed?.toHit;
+}
+
+export function enrichEntryOffense(entry: Entry): Entry {
+  let next = entry;
+  if (next.saveDc == null) {
+    const saveDc = saveDcFromDesc(next.desc);
+    if (saveDc != null) next = { ...next, saveDc };
+  }
+  if (next.attackBonus == null) {
+    const attackBonus = attackBonusFromDesc(next.desc);
+    if (attackBonus != null) next = { ...next, attackBonus };
+  }
+  return next;
+}
+
+/** Fill structured damage, requirements, duration, and offense from free-text. */
 export function enrichEntry(entry: Entry): Entry {
-  return enrichEntryRequirements(enrichEntryDamage(entry));
+  return enrichEntryOffense(
+    enrichEntryDuration(enrichEntryRequirements(enrichEntryDamage(entry))),
+  );
+}
+
+export function formatEntryOffense(
+  entry: Pick<Entry, 'attackBonus' | 'saveDc'>,
+): string {
+  const bits: string[] = [];
+  if (entry.attackBonus != null) {
+    bits.push(entry.attackBonus >= 0 ? `+${entry.attackBonus}` : `${entry.attackBonus}`);
+  }
+  if (entry.saveDc != null) bits.push(`DC ${entry.saveDc}`);
+  return bits.join(' · ');
 }
 
 export function parseSaveDC(text: string): ParsedSaveDC | null {

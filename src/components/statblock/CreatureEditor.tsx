@@ -787,6 +787,8 @@ export function CreatureEditor({
               label="Traits"
               entries={draft.traits}
               onChange={(traits) => patch({ traits })}
+              showDuration
+              showOffense
             />
             <CreatureSpellPicker
               block={draft}
@@ -801,6 +803,8 @@ export function CreatureEditor({
               showActionCosts={form.showPf2eBlock}
               showDamage
               showRequirements
+              showDuration
+              showOffense
               actionCosts={draft.pf2e?.actionCosts}
               onActionCostsChange={(actionCosts) =>
                 patchPf2e({
@@ -822,12 +826,16 @@ export function CreatureEditor({
               onChange={(bonusActions) => patch({ bonusActions })}
               showDamage
               showRequirements
+              showDuration
+              showOffense
             />
             <EntryListEditor
               label="Reactions"
               entries={draft.reactions}
               onChange={(reactions) => patch({ reactions })}
               showRequirements
+              showDuration
+              showOffense
             />
 
             {form.showLegendaryBlock && (
@@ -855,6 +863,8 @@ export function CreatureEditor({
                   label="Legendary actions"
                   entries={draft.legendaryActions}
                   onChange={(legendaryActions) => patch({ legendaryActions })}
+                  showDuration
+                  showOffense
                 />
               </section>
             )}

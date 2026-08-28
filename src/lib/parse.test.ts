@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  attackBonusFromDesc,
   damageFieldsFromDesc,
+  durationFromDesc,
+  enrichEntry,
   enrichEntryDamage,
+  enrichEntryDuration,
+  enrichEntryOffense,
   enrichEntryRequirements,
+  formatEntryOffense,
   parseAttack,
   parseDamage,
   parseLegendaryCount,
@@ -11,6 +17,7 @@ import {
   parseSpellDamage,
   parseSpellSlots,
   requirementsFromDesc,
+  saveDcFromDesc,
 } from './parse';
 
 describe('parseAttack', () => {
@@ -21,6 +28,11 @@ describe('parseAttack', () => {
   it('parses negative and spaced forms', () => {
     expect(parseAttack('Melee Weapon Attack: -1 to hit')).toEqual({ toHit: -1 });
     expect(parseAttack('+10 to hit, reach 5 ft.')).toEqual({ toHit: 10 });
+  });
+
+  it('parses attack modifier and Strike forms', () => {
+    expect(parseAttack('Spell attack modifier +7')).toEqual({ toHit: 7 });
+    expect(parseAttack('Strike +12')).toEqual({ toHit: 12 });
   });
 });
 
@@ -133,6 +145,100 @@ describe('requirementsFromDesc / enrichEntryRequirements', () => {
       requirements: 'Holding a shield',
     };
     expect(enrichEntryRequirements(entry)).toEqual(entry);
+  });
+});
+
+describe('durationFromDesc / enrichEntryDuration', () => {
+  it('parses a labelled Duration clause', () => {
+    expect(
+      durationFromDesc(
+        'Duration 1 minute. Effect The target is frightened.',
+      ),
+    ).toBe('1 minute');
+  });
+
+  it('parses a lasts-for phrase', () => {
+    expect(
+      durationFromDesc('The target is paralyzed and lasts for 1 minute.'),
+    ).toBe('1 minute');
+  });
+
+  it('enrichEntryDuration leaves an existing note alone', () => {
+    const entry = {
+      name: 'Hold',
+      desc: 'Duration 1 minute. Effect …',
+      duration: 'until end of turn',
+    };
+    expect(enrichEntryDuration(entry)).toEqual(entry);
+  });
+
+  it('enrichEntryDuration fills from desc when missing', () => {
+    expect(
+      enrichEntryDuration({
+        name: 'Hold',
+        desc: 'Duration 1 minute. Effect The target is held.',
+      }),
+    ).toMatchObject({ duration: '1 minute' });
+  });
+});
+
+describe('saveDcFromDesc / attackBonusFromDesc / enrichEntryOffense', () => {
+  it('reads a save DC with an ability', () => {
+    expect(saveDcFromDesc('DC 17 Dexterity saving throw')).toBe(17);
+  });
+
+  it('reads a bare DC when no ability is named', () => {
+    expect(saveDcFromDesc('spell save DC 15')).toBe(15);
+  });
+
+  it('reads an attack bonus from to-hit prose', () => {
+    expect(attackBonusFromDesc('Melee Weapon Attack: +7 to hit')).toBe(7);
+  });
+
+  it('enrichEntryOffense fills missing fields and leaves existing ones', () => {
+    expect(
+      enrichEntryOffense({
+        name: 'Bite',
+        desc: 'Melee Weapon Attack: +5 to hit. DC 13 Strength save.',
+      }),
+    ).toEqual({
+      name: 'Bite',
+      desc: 'Melee Weapon Attack: +5 to hit. DC 13 Strength save.',
+      attackBonus: 5,
+      saveDc: 13,
+    });
+    const kept = {
+      name: 'Bite',
+      desc: 'Melee Weapon Attack: +5 to hit. DC 13 Strength save.',
+      attackBonus: 9,
+      saveDc: 18,
+    };
+    expect(enrichEntryOffense(kept)).toEqual(kept);
+  });
+});
+
+describe('formatEntryOffense', () => {
+  it('joins attack bonus and DC', () => {
+    expect(formatEntryOffense({ attackBonus: 7, saveDc: 15 })).toBe('+7 · DC 15');
+    expect(formatEntryOffense({ attackBonus: -1 })).toBe('-1');
+    expect(formatEntryOffense({ saveDc: 14 })).toBe('DC 14');
+    expect(formatEntryOffense({})).toBe('');
+  });
+});
+
+describe('enrichEntry', () => {
+  it('fills damage, requirements, duration, and offense from prose', () => {
+    expect(
+      enrichEntry({
+        name: 'Breath',
+        desc: 'Requirements The dragon is flying. Duration 1 minute. DC 18 Dexterity saving throw. Hit: 33 (6d10) fire damage.',
+      }),
+    ).toMatchObject({
+      damage: { expr: '6d10', type: 'fire' },
+      requirements: 'The dragon is flying.',
+      duration: '1 minute',
+      saveDc: 18,
+    });
   });
 });
 

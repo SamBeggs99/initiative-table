@@ -12,6 +12,7 @@ import {
   removeSpellRef,
   resolveSpellcasting,
   spellGroupLabel,
+  spellOffenseKind,
   spellRefFromSpell,
 } from './creature-spells';
 import { blankStatBlock } from './statblock-derived';
@@ -178,5 +179,31 @@ The mage is a 9th-level spellcaster. Its spellcasting ability is Intelligence.
         { ability: 'wis' },
       ),
     ).toEqual({ ability: 'wis' });
+  });
+});
+
+describe('spellOffenseKind', () => {
+  it('detects attack rolls, saves, both, or neither', () => {
+    expect(
+      spellOffenseKind('Make a ranged spell attack against the target.'),
+    ).toBe('attack');
+    expect(
+      spellOffenseKind(
+        'Each creature in the area must make a Dexterity saving throw.',
+      ),
+    ).toBe('save');
+    expect(
+      spellOffenseKind(
+        'Each creature must attempt a basic Reflex save.',
+      ),
+    ).toBe('save');
+    expect(
+      spellOffenseKind(
+        'Make a melee spell attack. On a hit, the target must make a Constitution saving throw.',
+      ),
+    ).toBe('both');
+    expect(
+      spellOffenseKind('You gain a +1 bonus to AC until the start of your next turn.'),
+    ).toBeNull();
   });
 });

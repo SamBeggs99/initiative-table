@@ -2,6 +2,7 @@ import { averageOf, rollExpression } from '../dice';
 import { parseLegendaryCount, parseLimitedUses, parseSpellSlots } from '../parse';
 import type { Combatant, HpRollMode, LimitedUse, StatBlock } from '../../types';
 import { createCombatant } from '../../types';
+import { newId } from '../uuid';
 
 const SUFFIXES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -78,7 +79,7 @@ export function buildCombatantsFromStatBlock(
 ): Combatant[] {
   const quantity = Math.min(12, Math.max(1, Math.floor(opts.quantity)));
   const baseName = opts.nameOverride?.trim() || block.name;
-  const groupKey = quantity > 1 ? crypto.randomUUID() : undefined;
+  const groupKey = quantity > 1 ? newId() : undefined;
   const pf2ePerception = block.pf2e?.perception ?? null;
 
   const combatants: Combatant[] = [];

@@ -7,9 +7,12 @@ import {
   uniquifyNethysSpellId,
   type NethysSpell,
 } from './normalize-nethys';
+import nethysSnapshot from '../../data/nethys-player-core-spells.json' with { type: 'json' };
 
 export const NETHYS_SEARCH_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 export const NETHYS_PAGE_SIZE = 100;
+
+type NethysSnapshotRow = NethysSpell & { _id?: string };
 
 interface EsSearchResponse {
   hits?: {
@@ -45,14 +48,52 @@ async function nethysErrorMessage(res: Response): Promise<string> {
   }
 }
 
-export async function fetchNethysCoreSpells(
+function mapNethysRows(
+  rows: { _id: string; source: NethysSpell }[],
+  onProgress?: (p: SpellSyncProgress) => void,
+  catalogTotal?: number,
+): Spell[] {
+  const out: Spell[] = [];
+  const taken = new Set<string>();
+  for (const row of rows) {
+    const mapped = nethysToSpell(row.source, 'synced');
+    if (!mapped) continue;
+    const unique = uniquifyNethysSpellId(mapped, row._id, taken);
+    taken.add(unique.id);
+    out.push(unique);
+  }
+  onProgress?.({
+    fetched: out.length,
+    total: catalogTotal ?? out.length,
+    phase: 'fetch',
+    message: `Fetched ${out.length}${catalogTotal != null ? ` / ${catalogTotal}` : ''} (Player Core)`,
+  });
+  return out;
+}
+
+function loadBundledNethysSnapshot(
+  onProgress?: (p: SpellSyncProgress) => void,
+): Spell[] {
+  const rows = (nethysSnapshot as NethysSnapshotRow[]).map((row) => ({
+    _id: row._id || row.id || row.name || 'spell',
+    source: row,
+  }));
+  onProgress?.({
+    fetched: 0,
+    total: rows.length,
+    phase: 'fetch',
+    message: 'Archives of Nethys blocked this origin — loading Player Core snapshot…',
+  });
+  return mapNethysRows(rows, onProgress, rows.length);
+}
+
+async function fetchNethysFromNetwork(
   onProgress?: (p: SpellSyncProgress) => void,
   opts?: { fetchImpl?: typeof fetch; pageSize?: number },
 ): Promise<Spell[]> {
   const fetchImpl = opts?.fetchImpl ?? fetch;
   const pageSize = opts?.pageSize ?? NETHYS_PAGE_SIZE;
-  const out: Spell[] = [];
-  const taken = new Set<string>();
+  const collected: { _id: string; source: NethysSpell }[] = [];
   let from = 0;
   let catalogTotal: number | undefined;
 
@@ -88,18 +129,14 @@ export async function fetchNethysCoreSpells(
     catalogTotal = totalHits(data.hits) ?? catalogTotal;
 
     for (const hit of hits) {
-      const mapped = nethysToSpell(hit._source ?? {}, 'synced');
-      if (!mapped) continue;
-      const unique = uniquifyNethysSpellId(mapped, hit._id, taken);
-      taken.add(unique.id);
-      out.push(unique);
+      collected.push({ _id: hit._id, source: hit._source ?? {} });
     }
 
     onProgress?.({
-      fetched: out.length,
+      fetched: collected.length,
       total: catalogTotal,
       phase: 'fetch',
-      message: `Fetched ${out.length}${catalogTotal != null ? ` / ${catalogTotal}` : ''} (Player Core)`,
+      message: `Fetched ${collected.length}${catalogTotal != null ? ` / ${catalogTotal}` : ''} (Player Core)`,
     });
 
     if (hits.length === 0 || hits.length < pageSize) break;
@@ -109,7 +146,25 @@ export async function fetchNethysCoreSpells(
     }
   }
 
-  return out;
+  return mapNethysRows(collected, onProgress, catalogTotal);
+}
+
+export async function fetchNethysCoreSpells(
+  onProgress?: (p: SpellSyncProgress) => void,
+  opts?: { fetchImpl?: typeof fetch; pageSize?: number },
+): Promise<Spell[]> {
+  try {
+    return await fetchNethysFromNetwork(onProgress, opts);
+  } catch (err) {
+    // Tests inject fetchImpl and must see live API errors. In the browser,
+    // Nethys Elasticsearch only allows 2e.aonprd.com — fall back to snapshot.
+    if (opts?.fetchImpl) throw err;
+    console.warn(
+      'Nethys live sync unavailable; using Player Core snapshot',
+      err instanceof Error ? err.message : err,
+    );
+    return loadBundledNethysSnapshot(onProgress);
+  }
 }
 
 let inflight: Promise<{ count: number; retired: number }> | null = null;

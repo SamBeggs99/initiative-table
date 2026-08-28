@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { spellDb } from './db';
 import { nethysToSpell, type NethysSpell } from './normalize-nethys';
 import { fetchNethysCoreSpells, syncNethysSpells } from './sync-nethys';
+import nethysSnapshot from '../../data/nethys-player-core-spells.json' with { type: 'json' };
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -96,6 +97,18 @@ describe('fetchNethysCoreSpells', () => {
     await expect(
       fetchNethysCoreSpells(undefined, { fetchImpl }),
     ).rejects.toThrow(/Fielddata access on the _id field is disallowed/);
+  });
+});
+
+describe('nethys Player Core snapshot', () => {
+  it('maps the bundled snapshot to spells', () => {
+    const mapped = (nethysSnapshot as NethysSpell[])
+      .map((row) => nethysToSpell(row, 'synced'))
+      .filter((s): s is NonNullable<typeof s> => s != null);
+    expect(mapped.length).toBeGreaterThan(400);
+    expect(mapped.some((s) => /fireball/i.test(s.name) || s.slug === 'fireball')).toBe(
+      true,
+    );
   });
 });
 

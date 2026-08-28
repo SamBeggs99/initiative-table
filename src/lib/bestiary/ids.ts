@@ -1,4 +1,5 @@
 import type { System } from '../../types';
+import { newId } from '../uuid';
 
 /** Deterministic id for synced / bundled creatures. Homebrew must use random UUIDs. */
 export function deterministicCreatureId(
@@ -20,7 +21,7 @@ function isUuid(id: string): boolean {
 }
 
 export function newHomebrewId(): string {
-  return crypto.randomUUID();
+  return newId();
 }
 
 export function slugifyName(name: string): string {

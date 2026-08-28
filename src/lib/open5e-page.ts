@@ -14,7 +14,11 @@ export async function fetchOpen5ePages<T, R>(
   onProgress?: (fetched: number, total?: number) => void,
   fetchImpl: typeof fetch = fetch,
 ): Promise<R[]> {
-  const firstRes = await fetchImpl(firstUrl);
+  const jsonInit: RequestInit = {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  };
+  const firstRes = await fetchImpl(firstUrl, jsonInit);
   if (!firstRes.ok) {
     throw new Error(`Open5e request failed: ${firstRes.status} ${firstRes.statusText}`);
   }
@@ -29,7 +33,7 @@ export async function fetchOpen5ePages<T, R>(
 
   const rest = await Promise.all(
     pageUrls.map(async (url) => {
-      const res = await fetchImpl(url);
+      const res = await fetchImpl(url, jsonInit);
       if (!res.ok) {
         throw new Error(`Open5e request failed: ${res.status} ${res.statusText}`);
       }

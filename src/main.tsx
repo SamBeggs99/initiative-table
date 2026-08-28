@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { CloudAuthProvider } from './components/CloudAuthProvider'
 import { ensureBundledSeeded } from './lib/bestiary'
+import { installUuidPolyfill, redirectInsecureToHttps } from './lib/uuid'
+
+redirectInsecureToHttps()
+installUuidPolyfill()
 
 void ensureBundledSeeded()
 

@@ -1,3 +1,5 @@
+import { newId } from './lib/uuid';
+
 export type Ability = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 export type System = 'dnd5e' | 'pf2e';
 
@@ -412,7 +414,7 @@ export function emptySpellSlots(): Record<number, { max: number; used: number }>
 
 export function createCombatant(partial: Partial<Combatant> & Pick<Combatant, 'name' | 'kind'>): Combatant {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     initiative: null,
     dex: 10,
     ac: 10,

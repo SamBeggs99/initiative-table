@@ -1873,10 +1873,22 @@ export function waitForPersistHydration(): Promise<void> {
       resolve();
       return;
     }
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const unsub = useStore.persist.onFinishHydration(() => {
+      if (timer != null) clearTimeout(timer);
       unsub();
       resolve();
     });
+    // Hydration can finish between the hasHydrated() check and the subscribe.
+    if (useStore.persist.hasHydrated()) {
+      unsub();
+      resolve();
+      return;
+    }
+    timer = setTimeout(() => {
+      unsub();
+      resolve();
+    }, 4000);
   });
 }
 

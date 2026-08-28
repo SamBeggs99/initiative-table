@@ -9,7 +9,6 @@ export function CloudSyncGate({ children }: { children: ReactNode }) {
   const { configured, session } = useCloudAuth();
   const userId = session?.user.id;
   const [ready, setReady] = useState(!configured || !userId);
-  const pushToast = useStore((s) => s.pushToast);
 
   useEffect(() => {
     if (!configured || !userId) {
@@ -20,20 +19,28 @@ export function CloudSyncGate({ children }: { children: ReactNode }) {
     let cancelled = false;
     setReady(false);
     void (async () => {
-      const result = await startCloudSync();
-      if (cancelled) return;
-      if (result === 'uploaded' && useStore.getState().campaigns.length > 0) {
-        pushToast('Saved this device’s campaigns to your account');
-      } else if (result === 'hydrated') {
-        pushToast('Loaded your campaigns from the cloud');
+      try {
+        const result = await startCloudSync();
+        if (cancelled) return;
+        const pushToast = useStore.getState().pushToast;
+        if (result === 'uploaded' && useStore.getState().campaigns.length > 0) {
+          pushToast('Saved this device’s campaigns to your account');
+        } else if (result === 'hydrated') {
+          pushToast('Loaded your campaigns from the cloud');
+        }
+      } catch (err) {
+        console.warn(
+          'Cloud sync failed',
+          err instanceof Error ? err.message : err,
+        );
+      } finally {
+        if (!cancelled) setReady(true);
       }
-      setReady(true);
     })();
     return () => {
       cancelled = true;
-      stopCloudSync();
     };
-  }, [configured, userId, pushToast]);
+  }, [configured, userId]);
 
   if (!ready) {
     return (

@@ -9,6 +9,7 @@ import { isCloudBlobEmpty, type UserBlobPayload } from './blob-shape';
 import { fetchUserBlob, upsertUserBlob } from './blobs';
 import { getSupabase } from './client';
 import { onCloudDirty } from './dirty';
+import { withTimeout } from './timeout';
 import {
   readHomebrewCreatures,
   readHomebrewSpells,
@@ -105,9 +106,17 @@ export async function startCloudSync(): Promise<'uploaded' | 'hydrated' | 'offli
 
   const client = getSupabase();
   if (!client) return 'offline';
-  const {
-    data: { session },
-  } = await client.auth.getSession();
+  let session: { user: { id: string } } | null = null;
+  try {
+    const result = await withTimeout(client.auth.getSession(), 'auth session', 8000);
+    session = result.data.session;
+  } catch (err) {
+    console.warn(
+      'Cloud session read failed',
+      err instanceof Error ? err.message : err,
+    );
+    return 'offline';
+  }
   if (!session || id !== runId) return 'offline';
 
   try {
@@ -123,17 +132,23 @@ export async function startCloudSync(): Promise<'uploaded' | 'hydrated' | 'offli
       return 'uploaded';
     }
     applyPersistSlice({
-      campaigns: row.store.campaigns ?? [],
-      activeCampaignId: row.store.activeCampaignId ?? null,
-      encounters: row.store.encounters ?? [],
-      combatByCampaign: row.store.combatByCampaign ?? {},
-      settings: row.store.settings ?? useStore.getState().settings,
+      campaigns: row.store?.campaigns ?? [],
+      activeCampaignId: row.store?.activeCampaignId ?? null,
+      encounters: row.store?.encounters ?? [],
+      combatByCampaign: row.store?.combatByCampaign ?? {},
+      settings: row.store?.settings ?? useStore.getState().settings,
     });
-    await replaceHomebrewCreatures(
-      Array.isArray(row.homebrew_creatures) ? row.homebrew_creatures : [],
+    await withTimeout(
+      replaceHomebrewCreatures(
+        Array.isArray(row.homebrew_creatures) ? row.homebrew_creatures : [],
+      ),
+      'homebrew creatures',
     );
-    await replaceHomebrewSpells(
-      Array.isArray(row.homebrew_spells) ? row.homebrew_spells : [],
+    await withTimeout(
+      replaceHomebrewSpells(
+        Array.isArray(row.homebrew_spells) ? row.homebrew_spells : [],
+      ),
+      'homebrew spells',
     );
     if (id !== runId) return 'offline';
     lastPayloadJson = JSON.stringify(await buildPayload());

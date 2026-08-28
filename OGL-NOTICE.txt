@@ -1,0 +1,26 @@
+Open Game License Notice
+
+This product uses Open Game Content from the System Reference Document 5.1 (SRD 5.1),
+published by Wizards of the Coast under the Open Game License v1.0a.
+
+Monster statistics shipped in src/data/srd-monsters.json and 5e spells shipped in
+src/data/srd-spells-5e.json are derived from the SRD 5.1 via the Open5e API
+(https://open5e.com / https://api.open5e.com) and are Open Game Content.
+
+5e spells synced at runtime come from the D&D 5e SRD API (5e-bits)
+(https://www.dnd5eapi.co / https://5e-bits.github.io/docs) and are likewise
+Open Game Content from SRD 5.1.
+
+Pathfinder 2e spell summaries in src/data/srd-spells-pf2e.json, and spells synced
+from Archives of Nethys (Player Core and Player Core 2 only), are based on
+Player Core mechanics released under Paizo's ORC License. This application is
+unofficial fan content and is not published, endorsed, or specifically approved
+by Paizo Inc. Game data from Archives of Nethys (https://2e.aonprd.com).
+
+Product Identity belonging to Wizards of the Coast or Paizo (including proper names
+of characters, settings, and distinctive logos) is not used.
+
+This application is unofficial Fan Content permitted under the Fan Content Policy.
+Not approved or endorsed by Wizards of the Coast.
+
+Full Open Game License text: https://open5e.com/legal and the SRD 5.1 OGL section.

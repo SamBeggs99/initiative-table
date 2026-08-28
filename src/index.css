@@ -1,0 +1,1301 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm paper surfaces — lightest to deepest */
+  --color-surface: #f7f3ea;
+  --color-panel: #fdfbf5;
+  --color-panel-2: #f0ead9;
+  --color-panel-3: #e5dcc6;
+  --color-border: #dcd2bd;
+  --color-border-strong: #c1b393;
+  --color-muted: #6c6352;
+  --color-text: #2b2620;
+
+  /* Earthy semantics — bronze structure, forest HP, clay damage, stone status */
+  --color-accent: #8a5a2b;
+  --color-accent-2: #a97c3c;
+  --color-damage: #a63d2a;
+  --color-heal: #2f7d4f;
+  --color-condition: #46708a;
+  --color-amber: #a9761a;
+
+  /* Botanical motif — decorative only, never a state cue */
+  --color-leaf: #4f7a45;
+  --color-leaf-deep: #35603a;
+  --color-stem: #8a6a3a;
+  --color-bloom: #b0687a;
+  --color-bloom-deep: #8f4b62;
+
+  --font-mono-stats: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --font-sans-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+/*
+ * Night theme — same botanical vocabulary, moonlit canopy. Tokens override the
+ * day palette via data-theme so every utility and SVG tint follows along.
+ */
+html[data-theme='night'] {
+  color-scheme: dark;
+
+  --color-surface: #121612;
+  --color-panel: #1a201a;
+  --color-panel-2: #222a22;
+  --color-panel-3: #2c352c;
+  --color-border: #3a463a;
+  --color-border-strong: #576657;
+  --color-muted: #9aa894;
+  --color-text: #e8e3d4;
+
+  --color-accent: #c4894a;
+  --color-accent-2: #d4a35c;
+  --color-damage: #e07060;
+  --color-heal: #5cb87a;
+  --color-condition: #6a9bb8;
+  --color-amber: #d4a84a;
+
+  --color-leaf: #6b9a5c;
+  --color-leaf-deep: #4f7f48;
+  --color-stem: #a8885a;
+  --color-bloom: #d08095;
+  --color-bloom-deep: #b86880;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  /*
+   * Paper stock: pressed fibres and stray seed specks over the warm wash. The
+   * tile is fixed so the grain belongs to the page, not to any scrolling list.
+   */
+  body {
+    margin: 0;
+    background-color: var(--color-surface);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg stroke='%238a6a3a' stroke-width='.9' stroke-linecap='round' fill='none' opacity='.08'%3E%3Cpath d='M14 22 c6-3 12-3 18 0'/%3E%3Cpath d='M96 12 c7-2 13-1 18 3'/%3E%3Cpath d='M40 66 c5-4 11-4 16-1'/%3E%3Cpath d='M118 74 c6-3 12-2 17 2'/%3E%3Cpath d='M22 112 c6-3 12-3 18 1'/%3E%3Cpath d='M84 132 c7-3 13-2 18 2'/%3E%3Cpath d='M136 118 c5-3 10-3 15 0'/%3E%3Cpath d='M60 96 c5-3 10-3 15 0'/%3E%3C/g%3E%3Cg fill='%234f7a45' opacity='.07'%3E%3Cellipse cx='68' cy='30' rx='3.4' ry='1.6' transform='rotate(-24 68 30)'/%3E%3Cellipse cx='128' cy='46' rx='3' ry='1.4' transform='rotate(18 128 46)'/%3E%3Cellipse cx='30' cy='88' rx='3.2' ry='1.5' transform='rotate(-14 30 88)'/%3E%3Cellipse cx='104' cy='104' rx='3.4' ry='1.6' transform='rotate(28 104 104)'/%3E%3Cellipse cx='52' cy='142' rx='3' ry='1.4' transform='rotate(-20 52 142)'/%3E%3C/g%3E%3Cg fill='%23b0687a' opacity='.06'%3E%3Ccircle cx='150' cy='90' r='1.8'/%3E%3Ccircle cx='10' cy='52' r='1.6'/%3E%3Ccircle cx='78' cy='118' r='1.5'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(1100px 620px at 12% -12%, rgba(138, 90, 43, 0.07), transparent 62%),
+      radial-gradient(900px 520px at 100% 0%, rgba(47, 125, 79, 0.06), transparent 58%);
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-size: 160px 160px, auto, auto;
+    background-attachment: fixed;
+    color: var(--color-text);
+    font-family: var(--font-sans-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Night swaps fibres for drifting pollen and a cool moon wash. */
+  html[data-theme='night'] body {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23d4a84a' opacity='.1'%3E%3Ccircle cx='24' cy='30' r='1.2'/%3E%3Ccircle cx='118' cy='18' r='1'/%3E%3Ccircle cx='66' cy='74' r='1.3'/%3E%3Ccircle cx='142' cy='96' r='1.1'/%3E%3Ccircle cx='34' cy='126' r='1.2'/%3E%3Ccircle cx='96' cy='142' r='1'/%3E%3C/g%3E%3Cg fill='%236b9a5c' opacity='.1'%3E%3Cellipse cx='84' cy='40' rx='3.4' ry='1.6' transform='rotate(-24 84 40)'/%3E%3Cellipse cx='20' cy='84' rx='3' ry='1.4' transform='rotate(16 20 84)'/%3E%3Cellipse cx='128' cy='60' rx='3.2' ry='1.5' transform='rotate(-12 128 60)'/%3E%3Cellipse cx='108' cy='112' rx='3.4' ry='1.6' transform='rotate(26 108 112)'/%3E%3Cellipse cx='54' cy='150' rx='3' ry='1.4' transform='rotate(-18 54 150)'/%3E%3C/g%3E%3Cg fill='%23d08095' opacity='.08'%3E%3Ccircle cx='150' cy='132' r='1.7'/%3E%3Ccircle cx='8' cy='58' r='1.5'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(1000px 580px at 8% -18%, rgba(196, 137, 74, 0.12), transparent 58%),
+      radial-gradient(880px 520px at 100% 0%, rgba(74, 127, 72, 0.14), transparent 55%),
+      radial-gradient(700px 480px at 70% 110%, rgba(106, 155, 184, 0.07), transparent 50%);
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+    background-size: 160px 160px, auto, auto, auto;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+    background-clip: padding-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: linear-gradient(180deg, var(--color-panel), var(--color-panel-2));
+    color: var(--color-text);
+    padding: 0.3rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.1rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 1px rgba(43, 38, 32, 0.03);
+    transition:
+      border-color 140ms ease,
+      background 140ms ease,
+      color 140ms ease,
+      transform 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    background: linear-gradient(180deg, var(--color-panel), var(--color-panel-3));
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .btn-sm {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.6875rem;
+    border-radius: 0.4rem;
+  }
+
+  .btn-primary {
+    border-color: color-mix(in srgb, var(--color-accent) 72%, var(--color-text));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-accent) 88%, #ffffff),
+      var(--color-accent)
+    );
+    color: #fff9f0;
+    box-shadow: 0 1px 2px rgba(43, 38, 32, 0.16);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-text));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 82%, var(--color-text))
+    );
+  }
+
+  .btn-accent {
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+    color: var(--color-accent);
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    background: linear-gradient(
+      180deg,
+      var(--color-panel),
+      color-mix(in srgb, var(--color-accent) 12%, var(--color-panel-2))
+    );
+  }
+
+  .btn-danger {
+    border-color: color-mix(in srgb, var(--color-damage) 38%, var(--color-border));
+    color: var(--color-damage);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    border-color: var(--color-damage);
+    background: linear-gradient(
+      180deg,
+      var(--color-panel),
+      color-mix(in srgb, var(--color-damage) 12%, var(--color-panel-2))
+    );
+  }
+
+  .btn-heal {
+    border-color: color-mix(in srgb, var(--color-heal) 38%, var(--color-border));
+    color: var(--color-heal);
+  }
+
+  .btn-heal:hover:not(:disabled) {
+    border-color: var(--color-heal);
+    background: linear-gradient(
+      180deg,
+      var(--color-panel),
+      color-mix(in srgb, var(--color-heal) 12%, var(--color-panel-2))
+    );
+  }
+
+  .btn-ghost {
+    border-color: transparent;
+    background: none;
+    color: var(--color-muted);
+    box-shadow: none;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    border-color: var(--color-border);
+    background: var(--color-panel-2);
+    color: var(--color-text);
+  }
+
+  .btn-on {
+    border-color: color-mix(in srgb, var(--color-condition) 55%, var(--color-border));
+    background: linear-gradient(
+      180deg,
+      var(--color-panel),
+      color-mix(in srgb, var(--color-condition) 14%, var(--color-panel-2))
+    );
+    color: var(--color-condition);
+  }
+
+  /* ---------- Inputs ---------- */
+  .field {
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    color: var(--color-text);
+    padding: 0.35rem 0.55rem;
+    font-size: 0.8125rem;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .field::placeholder {
+    color: color-mix(in srgb, var(--color-muted) 65%, transparent);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+
+  /* ---------- Surfaces ---------- */
+  .card {
+    border-radius: 0.625rem;
+    border: 1px solid var(--color-border);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-panel) 94%, #ffffff),
+      var(--color-panel) 42%,
+      color-mix(in srgb, var(--color-panel-2) 45%, var(--color-panel))
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent),
+      0 1px 2px rgba(43, 38, 32, 0.05),
+      0 6px 16px -12px rgba(43, 38, 32, 0.4);
+  }
+
+  .card-hover:hover {
+    border-color: var(--color-border-strong);
+    background: linear-gradient(180deg, var(--color-panel), var(--color-panel-2));
+  }
+
+  .rail {
+    position: relative;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-panel) 92%, var(--color-panel-2)),
+        var(--color-panel) 30%,
+        color-mix(in srgb, var(--color-panel-2) 55%, var(--color-panel))
+      );
+  }
+
+  /*
+   * Faint pressed-leaf corner for a panel or section. Sits in the padding
+   * gutter at low opacity so headings and controls stay fully legible.
+   */
+  .panel-sprig {
+    position: relative;
+  }
+
+  .panel-sprig::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    width: 62px;
+    height: 44px;
+    pointer-events: none;
+    opacity: 0.38;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='62' height='44' viewBox='0 0 62 44'%3E%3Cpath d='M60 3 C46 6 36 14 30 25 C26 32 20 37 10 39' fill='none' stroke='%238a6a3a' stroke-width='1.2' stroke-linecap='round' opacity='.55'/%3E%3Cpath d='M44 9 C42 17 37 23 30 27' fill='none' stroke='%238a6a3a' stroke-width='.9' stroke-linecap='round' opacity='.42'/%3E%3Cg opacity='.5'%3E%3Cellipse cx='47' cy='9' rx='7' ry='3.2' fill='%234f7a45' transform='rotate(-34 47 9)'/%3E%3Cellipse cx='36' cy='19' rx='6.4' ry='3' fill='%2335603a' transform='rotate(24 36 19)'/%3E%3Cellipse cx='24' cy='30' rx='6' ry='2.8' fill='%234f7a45' transform='rotate(-16 24 30)'/%3E%3C/g%3E%3Cg opacity='.55'%3E%3Ccircle cx='57' cy='4' r='3.4' fill='%23b0687a'/%3E%3Ccircle cx='57' cy='4' r='1.3' fill='%23a9761a'/%3E%3Ccircle cx='13' cy='37' r='2.8' fill='%238f4b62'/%3E%3Ccircle cx='13' cy='37' r='1' fill='%23a9761a'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /*
+   * Undergrowth at the edges of the combat stage plus a soft clearing vignette,
+   * so rows read as a lit table rather than a slab of empty colour.
+   */
+  .stage-canopy {
+    position: relative;
+  }
+
+  .stage-canopy::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='300' viewBox='0 0 180 300'%3E%3Cg fill='none' stroke='%238a6a3a' stroke-width='2' stroke-linecap='round' opacity='.5'%3E%3Cpath d='M-6 4 C26 22 40 54 36 92 C33 126 44 156 70 176'/%3E%3Cpath d='M20 40 C42 44 58 60 64 82'/%3E%3Cpath d='M32 118 C54 124 70 140 76 162'/%3E%3C/g%3E%3Cg opacity='.42'%3E%3Cellipse cx='28' cy='38' rx='15' ry='7' fill='%234f7a45' transform='rotate(28 28 38)'/%3E%3Cellipse cx='46' cy='66' rx='13' ry='6' fill='%2335603a' transform='rotate(-14 46 66)'/%3E%3Cellipse cx='34' cy='114' rx='14' ry='6.5' fill='%234f7a45' transform='rotate(34 34 114)'/%3E%3Cellipse cx='58' cy='148' rx='13' ry='6' fill='%2335603a' transform='rotate(-10 58 148)'/%3E%3Cellipse cx='66' cy='178' rx='12' ry='5.5' fill='%234f7a45' transform='rotate(26 66 178)'/%3E%3C/g%3E%3Cg opacity='.5'%3E%3Ccircle cx='62' cy='84' r='6' fill='%23b0687a'/%3E%3Ccircle cx='62' cy='84' r='2.2' fill='%23a9761a'/%3E%3Ccircle cx='76' cy='164' r='5' fill='%238f4b62'/%3E%3Ccircle cx='76' cy='164' r='1.8' fill='%23a9761a'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(
+        120% 78% at 50% 0%,
+        transparent 52%,
+        color-mix(in srgb, var(--color-panel-3) 40%, transparent) 100%
+      );
+    background-repeat: no-repeat, no-repeat;
+    background-position: left -34px top 72px, center;
+    background-size: 180px auto, cover;
+  }
+
+  /*
+   * Forest floor along the stage's bottom edge. Masked to fade upward so a long
+   * initiative list that scrolls over it never has text sitting on foliage.
+   */
+  .stage-canopy::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 84px;
+    pointer-events: none;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='96' viewBox='0 0 260 96'%3E%3Cg fill='none' stroke='%238a6a3a' stroke-width='1.6' stroke-linecap='round' opacity='.5'%3E%3Cpath d='M18 96 C16 74 24 58 40 48'/%3E%3Cpath d='M74 96 C74 76 66 62 52 54'/%3E%3Cpath d='M126 96 C128 70 140 56 158 50'/%3E%3Cpath d='M188 96 C186 72 176 60 162 54'/%3E%3Cpath d='M232 96 C234 76 244 64 258 58'/%3E%3C/g%3E%3Cg opacity='.42'%3E%3Cellipse cx='30' cy='58' rx='14' ry='6' fill='%234f7a45' transform='rotate(-32 30 58)'/%3E%3Cellipse cx='12' cy='72' rx='12' ry='5.5' fill='%2335603a' transform='rotate(24 12 72)'/%3E%3Cellipse cx='58' cy='62' rx='13' ry='6' fill='%2335603a' transform='rotate(36 58 62)'/%3E%3Cellipse cx='84' cy='74' rx='12' ry='5.5' fill='%234f7a45' transform='rotate(-24 84 74)'/%3E%3Cellipse cx='146' cy='58' rx='14' ry='6' fill='%234f7a45' transform='rotate(28 146 58)'/%3E%3Cellipse cx='170' cy='66' rx='12' ry='5.5' fill='%2335603a' transform='rotate(-30 170 66)'/%3E%3Cellipse cx='196' cy='74' rx='13' ry='6' fill='%234f7a45' transform='rotate(22 196 74)'/%3E%3Cellipse cx='240' cy='64' rx='13' ry='6' fill='%2335603a' transform='rotate(-26 240 64)'/%3E%3Cellipse cx='112' cy='84' rx='12' ry='5.5' fill='%2335603a' transform='rotate(18 112 84)'/%3E%3C/g%3E%3Cg opacity='.5'%3E%3Ccircle cx='44' cy='46' r='5' fill='%23b0687a'/%3E%3Ccircle cx='44' cy='46' r='1.8' fill='%23a9761a'/%3E%3Ccircle cx='160' cy='48' r='4.4' fill='%238f4b62'/%3E%3Ccircle cx='160' cy='48' r='1.6' fill='%23a9761a'/%3E%3Ccircle cx='258' cy='56' r='4' fill='%23b0687a'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+    background-position: left bottom;
+    background-size: 260px 84px;
+    -webkit-mask-image: linear-gradient(to top, #000 0 42%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0 42%, transparent 100%);
+  }
+
+  .stage-canopy > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header menus (More) overflow onto the tape; they must stack above rows. */
+  .stage-canopy > .header-vine {
+    z-index: 20;
+  }
+
+  /*
+   * Unfurled parchment: the encounter stage reads as a sheet pulled open on the
+   * table — aged wash, long fibres, foxing blooms, shaded deckle edges. Every
+   * layer stays low-contrast so initiative numbers and HP still lead.
+   */
+  .stage-parchment {
+    background-color: color-mix(in srgb, var(--color-panel) 84%, var(--color-panel-2));
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg stroke='%238a6a3a' stroke-width='.8' stroke-linecap='round' fill='none' opacity='.07'%3E%3Cpath d='M-10 34 C40 29 90 38 140 32 C182 27 212 34 250 30'/%3E%3Cpath d='M-10 78 C36 74 84 82 132 76 C176 71 210 78 250 74'/%3E%3Cpath d='M-10 128 C46 124 92 132 140 126 C184 121 216 128 250 124'/%3E%3Cpath d='M-10 176 C42 172 88 180 136 174 C180 169 214 176 250 172'/%3E%3Cpath d='M-10 220 C44 216 96 224 142 218 C188 213 216 220 250 216'/%3E%3C/g%3E%3Cg stroke='%238a6a3a' stroke-width='.6' stroke-linecap='round' fill='none' opacity='.05'%3E%3Cpath d='M22 40 C30 62 26 90 34 118'/%3E%3Cpath d='M186 60 C194 84 190 112 198 138'/%3E%3C/g%3E%3Cg fill='%238a6a3a' opacity='.05'%3E%3Ccircle cx='62' cy='58' r='1.3'/%3E%3Ccircle cx='158' cy='102' r='1.1'/%3E%3Ccircle cx='96' cy='198' r='1.2'/%3E%3Ccircle cx='214' cy='166' r='1'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(
+        58% 38% at 16% 14%,
+        color-mix(in srgb, var(--color-stem) 13%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        48% 34% at 84% 26%,
+        color-mix(in srgb, var(--color-stem) 11%, transparent),
+        transparent 74%
+      ),
+      radial-gradient(
+        52% 40% at 34% 88%,
+        color-mix(in srgb, var(--color-amber) 10%, transparent),
+        transparent 72%
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-panel-3) 90%, transparent),
+        transparent 8%,
+        transparent 92%,
+        color-mix(in srgb, var(--color-panel-3) 90%, transparent)
+      );
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-size: 240px 240px, auto, auto, auto, auto;
+    box-shadow: inset 0 0 48px -18px color-mix(in srgb, var(--color-stem) 58%, transparent);
+  }
+
+  /*
+   * The rolled ends of the scroll: a slim dowel at each end of the stage with
+   * the sheet's shadow falling away from it. Bands sit in the flow so nothing
+   * ever scrolls underneath them.
+   */
+  .parchment-roll {
+    position: relative;
+    flex-shrink: 0;
+    height: 12px;
+    pointer-events: none;
+  }
+
+  .parchment-roll::before {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-stem) 76%, var(--color-text)),
+      color-mix(in srgb, var(--color-stem) 88%, #ffffff) 42%,
+      color-mix(in srgb, var(--color-stem) 66%, var(--color-text))
+    );
+    box-shadow: 0 1px 3px rgba(43, 38, 32, 0.32);
+  }
+
+  /* Sheet shadow curling away from the dowel. */
+  .parchment-roll::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+
+  .parchment-roll-top::before {
+    top: 0;
+  }
+
+  .parchment-roll-top::after {
+    bottom: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-stem) 30%, transparent),
+      transparent
+    );
+  }
+
+  .parchment-roll-bottom {
+    height: 14px;
+  }
+
+  .parchment-roll-bottom::before {
+    bottom: 0;
+  }
+
+  .parchment-roll-bottom::after {
+    top: 0;
+    background: linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-stem) 32%, transparent),
+      transparent
+    );
+  }
+
+  /*
+   * Climbing-vine watermark along the outer rail edge. The narrow, masked
+   * gutter keeps leaves clear of labels and controls at compact widths.
+   */
+  .rail-vine::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    background-size: 18px auto;
+    pointer-events: none;
+    opacity: 0.82;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='180' viewBox='0 0 26 180'%3E%3Cpath d='M13 0 C4 24 22 46 13 70 C4 94 22 116 13 140 C7 156 11 170 13 180' fill='none' stroke='%238a6a3a' stroke-width='1.5' stroke-linecap='round' opacity='.7'/%3E%3Cpath d='M13 18 C18 12 26 12 26 18 C22 24 15 23 13 18 Z' fill='%234f7a45' opacity='.65'/%3E%3Cpath d='M13 44 C8 38 0 38 0 44 C4 50 11 49 13 44 Z' fill='%2335603a' opacity='.6'/%3E%3Cpath d='M13 76 C18 70 26 70 26 76 C22 82 15 81 13 76 Z' fill='%234f7a45' opacity='.65'/%3E%3Cpath d='M13 104 C8 98 0 98 0 104 C4 110 11 109 13 104 Z' fill='%2335603a' opacity='.6'/%3E%3Cpath d='M13 134 C18 128 26 128 26 134 C22 140 15 139 13 134 Z' fill='%234f7a45' opacity='.65'/%3E%3Cpath d='M13 162 C8 156 0 156 0 162 C4 168 11 167 13 162 Z' fill='%2335603a' opacity='.6'/%3E%3Cpath d='M13 58 C19 56 22 52 21 48 C20.4 45 17 44.6 16 46.6 C15 48.6 16.6 50.4 18.6 50' fill='none' stroke='%238a6a3a' stroke-width='1' stroke-linecap='round' opacity='.6'/%3E%3Cpath d='M13 120 C7 118 4 114 5 110 C5.6 107 9 106.6 10 108.6 C11 110.6 9.4 112.4 7.4 112' fill='none' stroke='%238a6a3a' stroke-width='1' stroke-linecap='round' opacity='.6'/%3E%3Cg opacity='.72'%3E%3Ccircle cx='13' cy='32' r='3.4' fill='%23b0687a'/%3E%3Ccircle cx='13' cy='32' r='1.3' fill='%23a9761a'/%3E%3Ccircle cx='13' cy='90' r='3' fill='%238f4b62'/%3E%3Ccircle cx='13' cy='90' r='1.1' fill='%23a9761a'/%3E%3Ccircle cx='13' cy='150' r='3.2' fill='%23b0687a'/%3E%3Ccircle cx='13' cy='150' r='1.2' fill='%23a9761a'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat-y;
+  }
+
+  .rail-vine-right::before {
+    right: 0;
+    -webkit-mask-image: linear-gradient(to left, #000 0 55%, transparent 100%);
+    mask-image: linear-gradient(to left, #000 0 55%, transparent 100%);
+  }
+
+  .rail-vine-left::before {
+    left: 0;
+    transform: scaleX(-1);
+    -webkit-mask-image: linear-gradient(to right, #000 0 55%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0 55%, transparent 100%);
+  }
+
+  /*
+   * Overgrown corner for an empty combat stage. It is removed as soon as rows
+   * exist, so initiative and HP never sit on top of decorative imagery.
+   */
+  .stage-bloom {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='230' height='190' viewBox='0 0 230 190'%3E%3Cg fill='none' stroke='%238a6a3a' stroke-linecap='round' opacity='.36'%3E%3Cpath d='M226 188 C202 158 196 116 208 80 C217 50 214 24 198 4' stroke-width='3.2'/%3E%3Cpath d='M212 126 C182 122 154 130 132 150' stroke-width='2.4'/%3E%3Cpath d='M207 64 C178 55 150 59 126 74' stroke-width='2.2'/%3E%3Cpath d='M208 96 C214 90 216 82 213 76 C210 71 204 72 203 77 C202 82 207 85 210 82' stroke-width='1.8'/%3E%3C/g%3E%3Cg opacity='.3'%3E%3Cellipse cx='188' cy='122' rx='16' ry='7.5' fill='%234f7a45' transform='rotate(-18 188 122)'/%3E%3Cellipse cx='162' cy='127' rx='15' ry='7' fill='%2335603a' transform='rotate(14 162 127)'/%3E%3Cellipse cx='140' cy='140' rx='13' ry='6.5' fill='%234f7a45' transform='rotate(-22 140 140)'/%3E%3Cellipse cx='184' cy='58' rx='16' ry='7.5' fill='%2335603a' transform='rotate(-14 184 58)'/%3E%3Cellipse cx='158' cy='61' rx='15' ry='7' fill='%234f7a45' transform='rotate(16 158 61)'/%3E%3Cellipse cx='136' cy='70' rx='13' ry='6.5' fill='%2335603a' transform='rotate(-18 136 70)'/%3E%3Cellipse cx='213' cy='158' rx='14' ry='6.5' fill='%234f7a45' transform='rotate(62 213 158)'/%3E%3Cellipse cx='206' cy='98' rx='14' ry='6.5' fill='%2335603a' transform='rotate(-68 206 98)'/%3E%3Cellipse cx='203' cy='32' rx='13' ry='6' fill='%234f7a45' transform='rotate(72 203 32)'/%3E%3C/g%3E%3Cg opacity='.34'%3E%3Ccircle cx='196' cy='4' r='13' fill='%23b0687a'/%3E%3Ccircle cx='196' cy='4' r='5' fill='%23a9761a'/%3E%3Ccircle cx='124' cy='76' r='11' fill='%238f4b62'/%3E%3Ccircle cx='124' cy='76' r='4' fill='%23a9761a'/%3E%3Ccircle cx='130' cy='152' r='12' fill='%23b0687a'/%3E%3Ccircle cx='130' cy='152' r='4.5' fill='%23a9761a'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px bottom 10px;
+  }
+
+  .vine-hair {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-stem) 45%, transparent)
+    );
+  }
+
+  .vine-hair-left {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-stem) 45%, transparent)
+    );
+  }
+
+  .vine-hair-right {
+    background: linear-gradient(
+      270deg,
+      transparent,
+      color-mix(in srgb, var(--color-stem) 45%, transparent)
+    );
+  }
+
+  .ornament {
+    opacity: 0.85;
+  }
+
+  .ornament-soft {
+    opacity: 0.5;
+  }
+
+  .section-title {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  /* Leaf-and-stem bullet before a section title. */
+  .section-title-leaf::before {
+    content: '';
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.5rem;
+    margin-right: 0.35rem;
+    vertical-align: -0.02rem;
+    background-color: var(--color-leaf);
+    opacity: 0.95;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 8'%3E%3Cpath d='M0 3.3 H5.5 V4.7 H0 Z M5 4 C9 0 15 0 18 4 C15 8 9 8 5 4 Z' fill='%23000'/%3E%3C/svg%3E");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+  }
+
+  /*
+   * Running vine along a panel's lower seam. Straddles the border so it reads
+   * as growth along the join; the 10px band stays inside the header's padding
+   * gutter, so it never crosses a control.
+   */
+  .header-vine {
+    position: relative;
+  }
+
+  .header-vine::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -5px;
+    height: 10px;
+    pointer-events: none;
+    opacity: 0.8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='10' viewBox='0 0 160 10'%3E%3Cpath d='M0 5 C20 1 30 9 50 5 C70 1 80 9 100 5 C120 1 130 9 160 5' fill='none' stroke='%238a6a3a' stroke-width='1.2' stroke-linecap='round' opacity='.6'/%3E%3Cg fill='%234f7a45' opacity='.6'%3E%3Cpath d='M12 4 C15 0.6 21 0.6 23 4 C19 7.4 14 7 12 4 Z'/%3E%3Cpath d='M112 4 C115 0.6 121 0.6 123 4 C119 7.4 114 7 112 4 Z'/%3E%3C/g%3E%3Cg fill='%2335603a' opacity='.55'%3E%3Cpath d='M62 6 C65 9.4 71 9.4 73 6 C69 2.6 64 3 62 6 Z'/%3E%3C/g%3E%3Cg opacity='.7'%3E%3Ccircle cx='40' cy='5' r='2.4' fill='%23b0687a'/%3E%3Ccircle cx='40' cy='5' r='0.9' fill='%23a9761a'/%3E%3Ccircle cx='90' cy='5' r='2.1' fill='%238f4b62'/%3E%3Ccircle cx='140' cy='5' r='2.4' fill='%23b0687a'/%3E%3Ccircle cx='140' cy='5' r='0.9' fill='%23a9761a'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+  }
+
+  /* Table-facing view stays clean — ornament is prep-time delight only. */
+  :root[data-shared='true'] .ornament,
+  :root[data-shared='true'] .ornament-soft,
+  :root[data-shared='true'] .rail-vine::before,
+  :root[data-shared='true'] .header-vine::after,
+  :root[data-shared='true'] .panel-sprig::before,
+  :root[data-shared='true'] .stage-canopy::before,
+  :root[data-shared='true'] .stage-canopy::after {
+    display: none;
+  }
+
+  :root[data-shared='true'] .stage-bloom {
+    background-image: none;
+  }
+
+  :root[data-shared='true'] .parchment-roll {
+    display: none;
+  }
+
+  /* Night: tallow-lit vellum — deeper stock, warmer fibres, heavier edge burn. */
+  :root[data-theme='night'] .stage-parchment {
+    background-color: color-mix(in srgb, var(--color-panel) 88%, #000000);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg stroke='%23a8885a' stroke-width='.8' stroke-linecap='round' fill='none' opacity='.11'%3E%3Cpath d='M-10 34 C40 29 90 38 140 32 C182 27 212 34 250 30'/%3E%3Cpath d='M-10 78 C36 74 84 82 132 76 C176 71 210 78 250 74'/%3E%3Cpath d='M-10 128 C46 124 92 132 140 126 C184 121 216 128 250 124'/%3E%3Cpath d='M-10 176 C42 172 88 180 136 174 C180 169 214 176 250 172'/%3E%3Cpath d='M-10 220 C44 216 96 224 142 218 C188 213 216 220 250 216'/%3E%3C/g%3E%3Cg stroke='%23a8885a' stroke-width='.6' stroke-linecap='round' fill='none' opacity='.08'%3E%3Cpath d='M22 40 C30 62 26 90 34 118'/%3E%3Cpath d='M186 60 C194 84 190 112 198 138'/%3E%3C/g%3E%3Cg fill='%23a8885a' opacity='.09'%3E%3Ccircle cx='62' cy='58' r='1.3'/%3E%3Ccircle cx='158' cy='102' r='1.1'/%3E%3Ccircle cx='96' cy='198' r='1.2'/%3E%3Ccircle cx='214' cy='166' r='1'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(
+        58% 38% at 16% 14%,
+        color-mix(in srgb, var(--color-stem) 16%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        48% 34% at 84% 26%,
+        color-mix(in srgb, var(--color-stem) 13%, transparent),
+        transparent 74%
+      ),
+      radial-gradient(
+        52% 40% at 34% 88%,
+        color-mix(in srgb, var(--color-amber) 12%, transparent),
+        transparent 72%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.34),
+        transparent 8%,
+        transparent 92%,
+        rgba(0, 0, 0, 0.34)
+      );
+    box-shadow: inset 0 0 56px -16px rgba(0, 0, 0, 0.7);
+  }
+
+  :root[data-theme='night'] .parchment-roll::before {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, #000000 42%, var(--color-stem)),
+      color-mix(in srgb, var(--color-stem) 62%, var(--color-panel)) 45%,
+      color-mix(in srgb, #000000 52%, var(--color-stem))
+    );
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  :root[data-theme='night'] .parchment-roll-top::after {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), transparent);
+  }
+
+  :root[data-theme='night'] .parchment-roll-bottom::after {
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.34), transparent);
+  }
+
+  /* Moonlit vine tiles — same geometry, lifted greens and dusk blooms. */
+  :root[data-theme='night'] .rail-vine::before {
+    opacity: 0.9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='180' viewBox='0 0 26 180'%3E%3Cpath d='M13 0 C4 24 22 46 13 70 C4 94 22 116 13 140 C7 156 11 170 13 180' fill='none' stroke='%23a8885a' stroke-width='1.5' stroke-linecap='round' opacity='.75'/%3E%3Cpath d='M13 18 C18 12 26 12 26 18 C22 24 15 23 13 18 Z' fill='%236b9a5c' opacity='.7'/%3E%3Cpath d='M13 44 C8 38 0 38 0 44 C4 50 11 49 13 44 Z' fill='%234f7f48' opacity='.65'/%3E%3Cpath d='M13 76 C18 70 26 70 26 76 C22 82 15 81 13 76 Z' fill='%236b9a5c' opacity='.7'/%3E%3Cpath d='M13 104 C8 98 0 98 0 104 C4 110 11 109 13 104 Z' fill='%234f7f48' opacity='.65'/%3E%3Cpath d='M13 134 C18 128 26 128 26 134 C22 140 15 139 13 134 Z' fill='%236b9a5c' opacity='.7'/%3E%3Cpath d='M13 162 C8 156 0 156 0 162 C4 168 11 167 13 162 Z' fill='%234f7f48' opacity='.65'/%3E%3Cpath d='M13 58 C19 56 22 52 21 48 C20.4 45 17 44.6 16 46.6 C15 48.6 16.6 50.4 18.6 50' fill='none' stroke='%23a8885a' stroke-width='1' stroke-linecap='round' opacity='.65'/%3E%3Cpath d='M13 120 C7 118 4 114 5 110 C5.6 107 9 106.6 10 108.6 C11 110.6 9.4 112.4 7.4 112' fill='none' stroke='%23a8885a' stroke-width='1' stroke-linecap='round' opacity='.65'/%3E%3Cg opacity='.8'%3E%3Ccircle cx='13' cy='32' r='3.4' fill='%23d08095'/%3E%3Ccircle cx='13' cy='32' r='1.3' fill='%23d4a84a'/%3E%3Ccircle cx='13' cy='90' r='3' fill='%23b86880'/%3E%3Ccircle cx='13' cy='90' r='1.1' fill='%23d4a84a'/%3E%3Ccircle cx='13' cy='150' r='3.2' fill='%23d08095'/%3E%3Ccircle cx='13' cy='150' r='1.2' fill='%23d4a84a'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  :root[data-theme='night'] .header-vine::after {
+    opacity: 0.85;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='10' viewBox='0 0 160 10'%3E%3Cpath d='M0 5 C20 1 30 9 50 5 C70 1 80 9 100 5 C120 1 130 9 160 5' fill='none' stroke='%23a8885a' stroke-width='1.2' stroke-linecap='round' opacity='.7'/%3E%3Cg fill='%236b9a5c' opacity='.7'%3E%3Cpath d='M12 4 C15 0.6 21 0.6 23 4 C19 7.4 14 7 12 4 Z'/%3E%3Cpath d='M112 4 C115 0.6 121 0.6 123 4 C119 7.4 114 7 112 4 Z'/%3E%3C/g%3E%3Cg fill='%234f7f48' opacity='.65'%3E%3Cpath d='M62 6 C65 9.4 71 9.4 73 6 C69 2.6 64 3 62 6 Z'/%3E%3C/g%3E%3Cg opacity='.8'%3E%3Ccircle cx='40' cy='5' r='2.4' fill='%23d08095'/%3E%3Ccircle cx='40' cy='5' r='0.9' fill='%23d4a84a'/%3E%3Ccircle cx='90' cy='5' r='2.1' fill='%23b86880'/%3E%3Ccircle cx='140' cy='5' r='2.4' fill='%23d08095'/%3E%3Ccircle cx='140' cy='5' r='0.9' fill='%23d4a84a'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  :root[data-theme='night'] .stage-bloom {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='230' height='190' viewBox='0 0 230 190'%3E%3Cg fill='none' stroke='%23a8885a' stroke-linecap='round' opacity='.4'%3E%3Cpath d='M226 188 C202 158 196 116 208 80 C217 50 214 24 198 4' stroke-width='3.2'/%3E%3Cpath d='M212 126 C182 122 154 130 132 150' stroke-width='2.4'/%3E%3Cpath d='M207 64 C178 55 150 59 126 74' stroke-width='2.2'/%3E%3Cpath d='M208 96 C214 90 216 82 213 76 C210 71 204 72 203 77 C202 82 207 85 210 82' stroke-width='1.8'/%3E%3C/g%3E%3Cg opacity='.34'%3E%3Cellipse cx='188' cy='122' rx='16' ry='7.5' fill='%236b9a5c' transform='rotate(-18 188 122)'/%3E%3Cellipse cx='162' cy='127' rx='15' ry='7' fill='%234f7f48' transform='rotate(14 162 127)'/%3E%3Cellipse cx='140' cy='140' rx='13' ry='6.5' fill='%236b9a5c' transform='rotate(-22 140 140)'/%3E%3Cellipse cx='184' cy='58' rx='16' ry='7.5' fill='%234f7f48' transform='rotate(-14 184 58)'/%3E%3Cellipse cx='158' cy='61' rx='15' ry='7' fill='%236b9a5c' transform='rotate(16 158 61)'/%3E%3Cellipse cx='136' cy='70' rx='13' ry='6.5' fill='%234f7f48' transform='rotate(-18 136 70)'/%3E%3Cellipse cx='213' cy='158' rx='14' ry='6.5' fill='%236b9a5c' transform='rotate(62 213 158)'/%3E%3Cellipse cx='206' cy='98' rx='14' ry='6.5' fill='%234f7f48' transform='rotate(-68 206 98)'/%3E%3Cellipse cx='203' cy='32' rx='13' ry='6' fill='%236b9a5c' transform='rotate(72 203 32)'/%3E%3C/g%3E%3Cg opacity='.4'%3E%3Ccircle cx='196' cy='4' r='13' fill='%23d08095'/%3E%3Ccircle cx='196' cy='4' r='5' fill='%23d4a84a'/%3E%3Ccircle cx='124' cy='76' r='11' fill='%23b86880'/%3E%3Ccircle cx='124' cy='76' r='4' fill='%23d4a84a'/%3E%3Ccircle cx='130' cy='152' r='12' fill='%23d08095'/%3E%3Ccircle cx='130' cy='152' r='4.5' fill='%23d4a84a'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  :root[data-theme='night'] .ornament {
+    opacity: 0.9;
+  }
+
+  :root[data-theme='night'] .ornament-soft {
+    opacity: 0.55;
+  }
+
+  :root[data-theme='night'] .panel-sprig::before {
+    opacity: 0.45;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='62' height='44' viewBox='0 0 62 44'%3E%3Cpath d='M60 3 C46 6 36 14 30 25 C26 32 20 37 10 39' fill='none' stroke='%23a8885a' stroke-width='1.2' stroke-linecap='round' opacity='.6'/%3E%3Cpath d='M44 9 C42 17 37 23 30 27' fill='none' stroke='%23a8885a' stroke-width='.9' stroke-linecap='round' opacity='.45'/%3E%3Cg opacity='.55'%3E%3Cellipse cx='47' cy='9' rx='7' ry='3.2' fill='%236b9a5c' transform='rotate(-34 47 9)'/%3E%3Cellipse cx='36' cy='19' rx='6.4' ry='3' fill='%234f7f48' transform='rotate(24 36 19)'/%3E%3Cellipse cx='24' cy='30' rx='6' ry='2.8' fill='%236b9a5c' transform='rotate(-16 24 30)'/%3E%3C/g%3E%3Cg opacity='.6'%3E%3Ccircle cx='57' cy='4' r='3.4' fill='%23d08095'/%3E%3Ccircle cx='57' cy='4' r='1.3' fill='%23d4a84a'/%3E%3Ccircle cx='13' cy='37' r='2.8' fill='%23b86880'/%3E%3Ccircle cx='13' cy='37' r='1' fill='%23d4a84a'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  :root[data-theme='night'] .stage-canopy::before {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='300' viewBox='0 0 180 300'%3E%3Cg fill='none' stroke='%23a8885a' stroke-width='2' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M-6 4 C26 22 40 54 36 92 C33 126 44 156 70 176'/%3E%3Cpath d='M20 40 C42 44 58 60 64 82'/%3E%3Cpath d='M32 118 C54 124 70 140 76 162'/%3E%3C/g%3E%3Cg opacity='.48'%3E%3Cellipse cx='28' cy='38' rx='15' ry='7' fill='%236b9a5c' transform='rotate(28 28 38)'/%3E%3Cellipse cx='46' cy='66' rx='13' ry='6' fill='%234f7f48' transform='rotate(-14 46 66)'/%3E%3Cellipse cx='34' cy='114' rx='14' ry='6.5' fill='%236b9a5c' transform='rotate(34 34 114)'/%3E%3Cellipse cx='58' cy='148' rx='13' ry='6' fill='%234f7f48' transform='rotate(-10 58 148)'/%3E%3Cellipse cx='66' cy='178' rx='12' ry='5.5' fill='%236b9a5c' transform='rotate(26 66 178)'/%3E%3C/g%3E%3Cg opacity='.55'%3E%3Ccircle cx='62' cy='84' r='6' fill='%23d08095'/%3E%3Ccircle cx='62' cy='84' r='2.2' fill='%23d4a84a'/%3E%3Ccircle cx='76' cy='164' r='5' fill='%23b86880'/%3E%3Ccircle cx='76' cy='164' r='1.8' fill='%23d4a84a'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(
+        120% 78% at 50% 0%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.3) 100%
+      );
+  }
+
+  :root[data-theme='night'] .stage-canopy::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='96' viewBox='0 0 260 96'%3E%3Cg fill='none' stroke='%23a8885a' stroke-width='1.6' stroke-linecap='round' opacity='.55'%3E%3Cpath d='M18 96 C16 74 24 58 40 48'/%3E%3Cpath d='M74 96 C74 76 66 62 52 54'/%3E%3Cpath d='M126 96 C128 70 140 56 158 50'/%3E%3Cpath d='M188 96 C186 72 176 60 162 54'/%3E%3Cpath d='M232 96 C234 76 244 64 258 58'/%3E%3C/g%3E%3Cg opacity='.48'%3E%3Cellipse cx='30' cy='58' rx='14' ry='6' fill='%236b9a5c' transform='rotate(-32 30 58)'/%3E%3Cellipse cx='12' cy='72' rx='12' ry='5.5' fill='%234f7f48' transform='rotate(24 12 72)'/%3E%3Cellipse cx='58' cy='62' rx='13' ry='6' fill='%234f7f48' transform='rotate(36 58 62)'/%3E%3Cellipse cx='84' cy='74' rx='12' ry='5.5' fill='%236b9a5c' transform='rotate(-24 84 74)'/%3E%3Cellipse cx='146' cy='58' rx='14' ry='6' fill='%236b9a5c' transform='rotate(28 146 58)'/%3E%3Cellipse cx='170' cy='66' rx='12' ry='5.5' fill='%234f7f48' transform='rotate(-30 170 66)'/%3E%3Cellipse cx='196' cy='74' rx='13' ry='6' fill='%236b9a5c' transform='rotate(22 196 74)'/%3E%3Cellipse cx='240' cy='64' rx='13' ry='6' fill='%234f7f48' transform='rotate(-26 240 64)'/%3E%3Cellipse cx='112' cy='84' rx='12' ry='5.5' fill='%234f7f48' transform='rotate(18 112 84)'/%3E%3C/g%3E%3Cg opacity='.55'%3E%3Ccircle cx='44' cy='46' r='5' fill='%23d08095'/%3E%3Ccircle cx='44' cy='46' r='1.8' fill='%23d4a84a'/%3E%3Ccircle cx='160' cy='48' r='4.4' fill='%23b86880'/%3E%3Ccircle cx='160' cy='48' r='1.6' fill='%23d4a84a'/%3E%3Ccircle cx='258' cy='56' r='4' fill='%23d08095'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  :root[data-theme='night'] .card {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-panel) 88%, #ffffff 6%),
+      var(--color-panel) 45%,
+      color-mix(in srgb, var(--color-panel-2) 55%, var(--color-panel))
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent),
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 8px 20px -14px rgba(0, 0, 0, 0.8);
+  }
+
+  /* ---------- Segmented control ---------- */
+  .seg {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel-2);
+  }
+
+  .seg-item {
+    border-radius: 0.45rem;
+    border: 1px solid transparent;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition:
+      background 140ms ease,
+      color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .seg-item:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-panel) 70%, transparent);
+  }
+
+  .seg-item[aria-selected='true'] {
+    color: var(--color-accent);
+    border-color: var(--color-border);
+    background: var(--color-panel);
+    box-shadow: 0 1px 2px rgba(43, 38, 32, 0.07);
+  }
+
+  /* ---------- Combat row ---------- */
+  .row-combat {
+    position: relative;
+    overflow: hidden;
+    transition:
+      background 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  /* Separator tapers at both ends so the list reads as a woven page, not a grid. */
+  .row-combat::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-border) 85%, transparent) 12%,
+      color-mix(in srgb, var(--color-border) 85%, transparent) 88%,
+      transparent
+    );
+  }
+
+  .row-combat:hover {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-leaf) 7%, transparent),
+      color-mix(in srgb, var(--color-panel) 78%, transparent) 26%
+    );
+  }
+
+  /* Active turn: the row lifts to paper-white with a bronze edge and warm wash. */
+  .row-active,
+  .row-active:hover {
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-accent) 10%, transparent),
+        transparent 34%
+      ),
+      var(--color-panel);
+    box-shadow:
+      inset 4px 0 0 0 var(--color-accent),
+      0 1px 3px rgba(43, 38, 32, 0.08);
+  }
+
+  /* Checked for bulk HP / AoE — distinct from whose turn it is. */
+  .row-selected:not(.row-active) {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-damage) 11%, transparent),
+      transparent 42%
+    );
+  }
+
+  .row-selected.row-active {
+    box-shadow:
+      inset 4px 0 0 0 var(--color-accent),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-damage) 45%, transparent),
+      0 1px 3px rgba(43, 38, 32, 0.08);
+  }
+
+  /* Keyboard focus (j/k) — not the same as a checked target. */
+  .row-focused:not(.row-active):not(.row-selected) {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 50%, transparent);
+  }
+
+  .row-dead {
+    opacity: 0.5;
+  }
+
+  /*
+   * Progressive disclosure: state is always visible, affordances appear on the
+   * active row, on hover, or when anything inside the row has focus.
+   * `visibility` (not just opacity) keeps hidden controls out of the tab order
+   * and un-clickable.
+   */
+  .row-affordance {
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 130ms ease,
+      visibility 130ms ease;
+  }
+
+  .row-combat:hover .row-affordance,
+  .row-combat:focus-within .row-affordance,
+  .row-reveal .row-affordance {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .init-pill {
+    display: inline-flex;
+    min-width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    padding: 0.1rem 0.4rem;
+    font-family: var(--font-mono-stats);
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--color-text);
+    transition:
+      border-color 140ms ease,
+      color 140ms ease,
+      background 140ms ease;
+  }
+
+  .init-pill:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .init-pill-active {
+    border-color: color-mix(in srgb, var(--color-accent) 80%, var(--color-text));
+    background: var(--color-accent);
+    color: #fff9f0;
+  }
+
+  /*
+   * Identity colour: --identity is set per row from the character's class or
+   * the enemy group. It tints who someone *is*; health and allegiance are read
+   * from the HP bar and the role rail, never from this.
+   */
+  .init-pill-identity {
+    border-color: color-mix(in srgb, var(--identity) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--identity) 8%, var(--color-panel));
+  }
+
+  /* The active turn still wins the pill — current turn outranks identity. */
+  .init-pill-identity.init-pill-active {
+    border-color: color-mix(in srgb, var(--color-accent) 80%, var(--color-text));
+    background: var(--color-accent);
+  }
+
+  .name-identity {
+    color: var(--identity, var(--color-text));
+  }
+
+  button.name-identity:hover,
+  a.name-identity:hover {
+    color: var(--color-accent);
+  }
+
+  .portrait-thumb {
+    flex-shrink: 0;
+    border-radius: 0.35rem;
+    object-fit: cover;
+    border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+    background: var(--color-panel-2);
+  }
+
+  .portrait-frame {
+    border-radius: 0.4rem;
+    border: 1px dashed color-mix(in srgb, var(--color-border) 90%, transparent);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-panel-2) 88%, var(--color-border)) 0%,
+        var(--color-panel) 100%
+      );
+  }
+
+  .identity-dot {
+    display: inline-block;
+    height: 0.5rem;
+    width: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--identity, var(--color-border));
+  }
+
+  /*
+   * Day hues are tuned for parchment. Night lifts them toward moonlit parchment
+   * so class/enemy identity still reads on the dark canopy.
+   */
+  :root[data-theme='night'] .name-identity {
+    color: color-mix(in srgb, var(--identity, var(--color-text)) 58%, #f3eee2);
+  }
+
+  :root[data-theme='night'] .init-pill-identity {
+    border-color: color-mix(in srgb, var(--identity) 50%, var(--color-border));
+    background: color-mix(in srgb, var(--identity) 22%, var(--color-panel));
+  }
+
+  :root[data-theme='night'] .identity-dot {
+    background: color-mix(in srgb, var(--identity) 65%, #f3eee2);
+  }
+
+  :root[data-theme='night'] .btn {
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  }
+
+  /* ---------- HP bar ---------- */
+  .hp-track {
+    position: relative;
+    display: flex;
+    height: 0.5rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-surface) 82%, var(--color-panel-3));
+    box-shadow:
+      inset 0 1px 2px rgba(43, 38, 32, 0.16),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-border) 70%, transparent);
+  }
+
+  /* Glass highlight over the fill — pure sheen, carries no meaning. */
+  .hp-track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34),
+      rgba(255, 255, 255, 0.06) 48%,
+      rgba(43, 38, 32, 0.12)
+    );
+  }
+
+  .hp-fill {
+    height: 100%;
+    transition: width 300ms ease-out;
+  }
+
+  :root[data-theme='night'] .hp-track {
+    background: color-mix(in srgb, #000000 34%, var(--color-panel-2));
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.55),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-border) 80%, transparent);
+  }
+
+  :root[data-theme='night'] .hp-track::after {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.02) 46%,
+      rgba(0, 0, 0, 0.3)
+    );
+  }
+
+  /* ---------- Small state markers ---------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    padding: 0.1rem 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--color-muted);
+  }
+
+  .stat-nudge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.15rem;
+    padding: 0 0.28rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    font-family: var(--font-mono-stats);
+    font-size: 0.625rem;
+    line-height: 1;
+    color: var(--color-muted);
+  }
+
+  .stat-nudge:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text);
+  }
+
+  .stat-nudge-on {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent) 14%, var(--color-panel));
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  /* Damage / condition traits on a stat block entry. --defense is the type tint. */
+  .defense-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--defense, var(--color-muted)) 46%, var(--color-border));
+    background: color-mix(
+      in srgb,
+      var(--defense, var(--color-muted)) 16%,
+      var(--color-panel)
+    );
+    padding: 0.12rem 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.2;
+    color: var(--color-text);
+  }
+
+  .defense-chip-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--defense, var(--color-muted));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--defense, var(--color-muted)) 35%, transparent);
+  }
+
+  .defense-chip-immune {
+    background: color-mix(
+      in srgb,
+      var(--defense, var(--color-damage)) 24%,
+      var(--color-panel)
+    );
+    font-weight: 600;
+  }
+
+  .defense-chip-vulnerable {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--color-amber) 14%, var(--color-panel));
+  }
+
+  .defense-chip-condition {
+    background: color-mix(in srgb, var(--color-condition) 16%, var(--color-panel));
+  }
+
+  .defense-chip-note {
+    font-size: 0.625rem;
+    font-style: italic;
+    color: var(--color-muted);
+  }
+
+  /* Resource pips: reaction, concentration, legendary, limited uses. */
+  .pip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-panel);
+    padding: 0.05rem 0.35rem;
+    font-size: 0.625rem;
+    color: var(--color-muted);
+    transition:
+      border-color 130ms ease,
+      color 130ms ease,
+      background 130ms ease;
+  }
+
+  .pip:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text);
+  }
+
+  .pip-on {
+    border-color: color-mix(in srgb, var(--color-condition) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-condition) 12%, var(--color-panel));
+    color: var(--color-condition);
+  }
+
+  .pip-spent {
+    background: var(--color-panel-2);
+    color: color-mix(in srgb, var(--color-muted) 75%, transparent);
+    text-decoration: line-through;
+  }
+
+  .badge-soft {
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+    color: var(--color-muted);
+  }
+
+  .badge-accent {
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color: var(--color-accent);
+  }
+
+  .badge-condition {
+    background: color-mix(in srgb, var(--color-condition) 16%, transparent);
+    color: var(--color-condition);
+  }
+
+  .toast-in {
+    animation: toast-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Damage hit light — colour comes from --flash (damage type). */
+  .row-flash-light {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 55% 130% at 90% 50%,
+        color-mix(in srgb, var(--flash, var(--color-damage)) 58%, transparent),
+        transparent 64%
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--flash, var(--color-damage)) 14%, transparent),
+        transparent 52%
+      );
+    animation: row-flash-light 560ms ease-out forwards;
+  }
+
+  @keyframes row-flash-light {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .row-turn-pulse {
+    animation: row-turn-pulse 480ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes row-turn-pulse {
+    0% {
+      box-shadow:
+        inset 4px 0 0 0 var(--color-accent),
+        0 0 0 0 color-mix(in srgb, var(--color-accent) 35%, transparent);
+    }
+    40% {
+      box-shadow:
+        inset 4px 0 0 0 var(--color-accent),
+        0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent);
+    }
+    100% {
+      box-shadow:
+        inset 4px 0 0 0 var(--color-accent),
+        0 1px 3px rgba(43, 38, 32, 0.08);
+    }
+  }
+
+  /* Density presets (set on <html data-density>). */
+  :root[data-density='compact'] .row-combat {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+  }
+
+  :root[data-density='compact'] .init-pill {
+    min-width: 1.85rem;
+    font-size: 0.875rem;
+  }
+
+  :root[data-density='compact'] .btn {
+    padding: 0.2rem 0.5rem;
+  }
+
+  /* Shared-screen / player TV: strip DM chrome, enlarge the fight. */
+  :root[data-shared='true'] .row-combat {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  :root[data-shared='true'] .row-name {
+    font-size: 1.35rem;
+    width: 16rem;
+  }
+
+  :root[data-shared='true'] .row-hp {
+    font-size: 1.2rem;
+  }
+
+  :root[data-shared='true'] .init-pill {
+    min-width: 2.75rem;
+    font-size: 1.25rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  :root[data-shared='true'] .chip {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.65rem;
+  }
+
+  :root[data-shared='true'] main {
+    max-width: 56rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+}

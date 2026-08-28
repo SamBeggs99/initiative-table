@@ -1,0 +1,35 @@
+# Project: Initiative Table — a D&D combat manager and campaign multi-tool for a DM
+# running games live at the table. Primary system is D&D 5e; PF2e is supported per-campaign
+# through a system adapter layer.
+
+## Stack (do not substitute)
+- Vite + React 18 + TypeScript (strict)
+- Tailwind CSS. No component library — hand-roll the UI.
+- Zustand for state, `persist` middleware to localStorage for app state.
+- Dexie (IndexedDB) for the cached bestiary only — it is too large for localStorage.
+- No backend, no auth, no server. Everything client-side, deployable as static files.
+- Vitest for logic tests (dice, stat block parsing, XP math). No component tests.
+
+## Non-negotiables
+- Never invent monster or spell data. Every stat block comes from the API, the bundled
+  SRD set, or something the user explicitly entered.
+- Nothing is a placeholder. If a control renders, it works. No "TODO: wire up" buttons.
+- All game math lives in `src/lib/` as pure functions with no React imports.
+- Types live in `src/types.ts` and are the single source of truth.
+- The app must be fully functional with no network connection.
+- Every state mutation autosaves. Losing round 4 of a boss fight is a product failure.
+- Prefer editing existing files over creating new ones. Ask before adding a dependency.
+
+## Design constraints
+Used in dim light, at a table, one-handed, mid-sentence. Optimise for glanceability and
+click count, not for looking like a SaaS dashboard.
+- Dark UI. Colour carries meaning: one accent for whose turn it is, red for damage and
+  bloodied, green for healing and temp HP, violet for conditions and spell slots.
+- HP, AC and initiative set in a monospace face at large sizes, tabular figures.
+- Applying damage is at most: click the field, type a number, press Enter.
+- Responsive to a phone, visible focus rings, `prefers-reduced-motion` respected.
+- No fantasy display font, no faux parchment. This is an instrument panel.
+
+## Out of scope — do not build these
+Maps, grids, tokens, fog of war, character creation, a rules chatbot, dice physics.
+Foundry and Owlbear Rodeo own that space and we will not catch them.

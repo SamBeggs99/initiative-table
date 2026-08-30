@@ -28,11 +28,24 @@ export type PartySheetPatch = Partial<
 
 /** Live fields — combat and rests write these; sheet form must not. */
 export type PartyLivePatch = Partial<
-  Pick<PartyMember, 'currentHp' | 'tempHp'>
+  Pick<PartyMember, 'currentHp' | 'tempHp' | 'heroPoints'>
 > & {
   spellSlotsUsed?: Record<number, number>;
   focusPointsCurrent?: number;
 };
+
+/** PF2e table: start a session with 1; award is 1d4+1 so the cap is 5. */
+export const HERO_POINT_MAX = 5;
+export const HERO_POINT_SESSION_START = 1;
+
+export function clampHeroPoints(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(HERO_POINT_MAX, Math.floor(n)));
+}
+
+export function resetHeroPointsForSession(member: PartyMember): PartyMember {
+  return { ...member, heroPoints: HERO_POINT_SESSION_START };
+}
 
 export function blankPartyMember(
   campaignId: string,
@@ -60,6 +73,7 @@ export function blankPartyMember(
     importedFrom: 'manual',
     focusPoints:
       opts?.system === 'pf2e' ? { current: 1, max: 1 } : undefined,
+    heroPoints: opts?.system === 'pf2e' ? HERO_POINT_SESSION_START : undefined,
   };
 }
 
@@ -282,6 +296,9 @@ export function applyLivePatch(member: PartyMember, patch: PartyLivePatch): Part
       ),
     };
   }
+  if (patch.heroPoints !== undefined) {
+    next.heroPoints = clampHeroPoints(patch.heroPoints);
+  }
   return next;
 }
 
@@ -344,6 +361,16 @@ export function partyDisplayedHp(
     tempHp: member.tempHp,
     inCombat: false,
   };
+}
+
+/** Live hero points — prefers the combatant while linked. Missing = session start. */
+export function partyDisplayedHeroPoints(
+  member: PartyMember,
+  combatants: Combatant[],
+): number {
+  const linked = combatantLinkedToParty(member.id, combatants);
+  const raw = linked?.heroPoints ?? member.heroPoints;
+  return raw != null ? clampHeroPoints(raw) : HERO_POINT_SESSION_START;
 }
 
 export interface LevelUpInput {
@@ -428,6 +455,10 @@ export function partyMemberToCombatant(member: PartyMember): Combatant {
     focusPoints: member.focusPoints
       ? { ...member.focusPoints }
       : undefined,
+    heroPoints:
+      member.heroPoints != null
+        ? clampHeroPoints(member.heroPoints)
+        : undefined,
     // Sheets store perception as a passive score (10 + modifier) for both
     // systems — Pathbuilder writes 10+mod, and the PF2e adapter reads the
     // modifier. Entering a raw PF2e bonus here will be wrong by 10.
@@ -514,6 +545,7 @@ export function applyPartyLiveWriteBack(
       tempHp: c.tempHp,
       spellSlotsUsed: used,
       focusPointsCurrent: c.focusPoints?.current,
+      ...(c.heroPoints != null ? { heroPoints: c.heroPoints } : {}),
     });
     // Explicit guard — sheet fields must be byte-identical
     if (

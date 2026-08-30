@@ -1,4 +1,6 @@
 import { useState, type CSSProperties, type MouseEvent } from 'react';
+import { HERO_POINT_SESSION_START } from '../../lib/party';
+import { useStore } from '../../store';
 import {
   combatantRole,
   hiddenHpLabel,
@@ -12,6 +14,7 @@ import type { Combatant, Entry } from '../../types';
 import { ConditionChips } from './ConditionChips';
 import { HpBar } from './HpBar';
 import { ActionStrip } from './ActionStrip';
+import { HeroPointPips } from './HeroPointPips';
 import { ResourcePips } from './ResourcePips';
 import type { ActionCost } from '../../lib/pf2e-actions';
 import { DamageTypeSelect } from './DamageTypeSelect';
@@ -84,6 +87,7 @@ export function CombatantRow({
   /** Spend action cost (PF2e) and/or roll structured damage onto the selection. */
   onUseAction?: (entry: Entry, cost: ActionCost) => void;
 }) {
+  const patchPartyLive = useStore((s) => s.patchPartyLive);
   const [editingInit, setEditingInit] = useState(false);
   const [dmg, setDmg] = useState('');
 
@@ -224,6 +228,12 @@ export function CombatantRow({
               {combatant.name}
             </button>
 
+            {deadMonster && (
+              <span className="shrink-0 rounded-sm bg-damage/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-damage">
+                Dead
+              </span>
+            )}
+
             {sharedScreen && combatant.conditions.length > 0 && (
               <ConditionChips
                 conditions={combatant.conditions}
@@ -236,6 +246,27 @@ export function CombatantRow({
             <span className="vital-pair">
               AC <b>{combatant.ac}</b>
             </span>
+
+            {form.showPf2eBlock && combatant.kind === 'pc' && (
+              <HeroPointPips
+                value={combatant.heroPoints ?? HERO_POINT_SESSION_START}
+                readOnly={sharedScreen}
+                compact
+                onChange={
+                  sharedScreen
+                    ? undefined
+                    : (next) => {
+                        if (combatant.sourcePartyMemberId) {
+                          patchPartyLive(combatant.sourcePartyMemberId, {
+                            heroPoints: next,
+                          });
+                        } else {
+                          onUpdate({ heroPoints: next });
+                        }
+                      }
+                }
+              />
+            )}
 
             <div className="flex min-w-[10rem] flex-1 items-center gap-2 sm:max-w-xs">
               <span className="row-hp w-[4.5rem] shrink-0 text-right font-mono-stats text-sm font-semibold tabular-nums text-text">
@@ -281,7 +312,9 @@ export function CombatantRow({
 
           {!sharedScreen && (
             <div
-              className="mt-1 flex flex-wrap items-center gap-2"
+              className={`mt-1 flex flex-wrap items-center gap-2 ${
+                deadMonster ? 'pointer-events-none opacity-60' : ''
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <label className="flex min-w-0 items-baseline gap-1.5">
@@ -301,6 +334,7 @@ export function CombatantRow({
                       submitField(e.shiftKey);
                     }
                   }}
+                  disabled={deadMonster}
                   aria-label={`Damage ${combatant.name}`}
                   title="12 or -12 = damage (temp first). +12 or h12 = heal, capped at max HP. *5 = add temp. t8 = replace temp. Dice: 2d6+3. Type: 12 fire"
                 />
@@ -313,7 +347,7 @@ export function CombatantRow({
               <button
                 type="button"
                 className={`btn btn-sm ${dmg.trim() ? 'btn-heal' : 'btn-text'}`}
-                disabled={!dmg.trim()}
+                disabled={deadMonster || !dmg.trim()}
                 onClick={() => submitField(true)}
               >
                 Heal

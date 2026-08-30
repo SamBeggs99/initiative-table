@@ -9,7 +9,9 @@ import type { ActionCost } from '../../lib/pf2e-actions';
 import type { CSSProperties } from 'react';
 
 function LiveLine({ combatant }: { combatant: Combatant }) {
+  const campaign = useStore(selectActiveCampaign);
   const combatStarted = useStore((s) => s.getActiveCombat().started);
+  const showHero = combatant.kind === 'pc' && campaign?.system === 'pf2e';
   const conds = combatant.conditions
     .map((c) => (c.value != null ? `${c.name} ${c.value}` : c.name))
     .join(', ');
@@ -52,6 +54,12 @@ function LiveLine({ combatant }: { combatant: Combatant }) {
           <span className="text-text">
             {combatant.focusPoints.current}/{combatant.focusPoints.max}
           </span>
+        </div>
+      )}
+      {showHero && (
+        <div>
+          <span className="text-muted">Hero </span>
+          <span className="text-text">{combatant.heroPoints ?? 1}</span>
         </div>
       )}
       {conds && (

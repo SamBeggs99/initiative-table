@@ -369,11 +369,6 @@ function LeftColumn({
                     stays under Edit sheet.
                   </p>
                 </div>
-                {adapter.resources.kind === 'focus-hero' && (
-                  <p className="mb-2 text-xs text-condition">
-                    Hero points: {active.heroPoints ?? 0}
-                  </p>
-                )}
                 <PartyPanel />
               </>
             )}

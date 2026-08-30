@@ -9,6 +9,7 @@ import {
   applySheetPatch,
   blankPartyMember,
   formatLevelEntry,
+  partyDisplayedHeroPoints,
   partyDisplayedHp,
   proficiencyBonusForLevel,
   spellSlotsFromClassTable,
@@ -18,6 +19,7 @@ import type { PartyMember } from '../types';
 import { emptySpellSlots } from '../types';
 import { Sprig } from './ornament/Botanical';
 import { ConfirmDialog } from './ui/AskDialog';
+import { HeroPointPips } from './combat/HeroPointPips';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
 
 function PartyHpField({
@@ -139,6 +141,25 @@ function LiveHpEditor({ member }: { member: PartyMember }) {
         max HP stays under Edit sheet.
       </p>
     </div>
+  );
+}
+
+function PartyHeroPoints({
+  member,
+  compact,
+}: {
+  member: PartyMember;
+  compact?: boolean;
+}) {
+  const combatants = useStore((s) => s.getActiveCombat().combatants);
+  const patchPartyLive = useStore((s) => s.patchPartyLive);
+  const value = partyDisplayedHeroPoints(member, combatants);
+  return (
+    <HeroPointPips
+      value={value}
+      compact={compact}
+      onChange={(next) => patchPartyLive(member.id, { heroPoints: next })}
+    />
   );
 }
 
@@ -749,6 +770,7 @@ function MemberDetail({
       </div>
 
       <LiveHpEditor member={member} />
+      {system === 'pf2e' && <PartyHeroPoints member={member} />}
 
       {logLines.length > 0 && (
         <div className="mb-2">
@@ -964,6 +986,9 @@ export function PartyPanel() {
                         </span>
                       </span>
                     </button>
+                  {campaign.system === 'pf2e' && (
+                    <PartyHeroPoints member={p} compact />
+                  )}
                   <PartyHpField memberId={p.id} compact />
                 </div>
               </li>

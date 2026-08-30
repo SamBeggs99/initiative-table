@@ -171,6 +171,8 @@ export interface Combatant {
   dying?: number;
   wounded?: number;
   focusPoints?: { current: number; max: number };
+  /** PF2e hero points — PCs only. */
+  heroPoints?: number;
   /** Informational Perception score/modifier. Not tied to initiative. */
   perception?: number;
 }
@@ -196,6 +198,11 @@ export interface PartyMember {
   importedFrom?: 'ddb-json' | 'pathbuilder' | 'manual';
   /** PF2e focus points (per character). */
   focusPoints?: { current: number; max: number };
+  /**
+   * PF2e hero points for this player (0–5, from a 1d4+1 award). Session start is 1.
+   * Not a party pool — each PC tracks their own.
+   */
+  heroPoints?: number;
   /** Optional character portrait as a resized data URL. */
   portraitDataUrl?: string;
 }
@@ -236,7 +243,7 @@ export interface Campaign {
    * Optional for older persisted campaigns — treat missing as [].
    */
   sessionNotes?: SessionNote[];
-  /** PF2e party-level hero points pool. */
+  /** @deprecated Party-wide pool. Hero points live on each PartyMember. */
   heroPoints?: number;
 }
 

@@ -47,12 +47,15 @@ import {
   applyPartyLiveWriteBack,
   applySheetPatch,
   blankPartyMember,
+  clampHeroPoints,
   combatantLinkedToParty,
+  HERO_POINT_SESSION_START,
   isPartyMemberInCombat,
   longRestCombatant,
   longRestPartyMember,
   partyMembersNotInCombat,
   partyMemberToCombatant,
+  resetHeroPointsForSession,
   ensurePartyCombatants,
   restPartyForNextFight,
   shortRestCombatant,
@@ -185,12 +188,16 @@ function stripSystemSpecificCampaign(campaign: Campaign, nextSystem: System): Ca
   return {
     ...campaign,
     system: nextSystem,
-    heroPoints: adapter.resources.kind === 'focus-hero' ? (campaign.heroPoints ?? 1) : undefined,
+    heroPoints: undefined,
     party: campaign.party.map((p) => ({
       ...p,
       focusPoints:
         adapter.resources.kind === 'focus-hero'
           ? (p.focusPoints ?? { current: 1, max: 1 })
+          : undefined,
+      heroPoints:
+        adapter.resources.kind === 'focus-hero'
+          ? (p.heroPoints ?? 1)
           : undefined,
       spellSlots:
         adapter.resources.kind === 'slots-legendary'
@@ -456,7 +463,6 @@ export const useStore = create<AppState>()(
           sessionNotes: [],
           lastOpened: Date.now(),
           sessionNumber: 1,
-          heroPoints: adapter.resources.kind === 'focus-hero' ? 1 : undefined,
         };
         set((s) => ({
           campaigns: [...s.campaigns, campaign],
@@ -614,6 +620,11 @@ export const useStore = create<AppState>()(
             campaign.party,
             combat.combatants,
           );
+          const adapter = getSystemAdapter(campaign.system);
+          const party =
+            adapter.resources.kind === 'focus-hero'
+              ? partyResult.party.map(resetHeroPointsForSession)
+              : partyResult.party;
           const trackers = retainCampaignTrackers(campaign.trackers);
           set((s) => ({
             campaigns: s.campaigns.map((camp) =>
@@ -621,7 +632,7 @@ export const useStore = create<AppState>()(
                 ? {
                     ...camp,
                     npcs: npcResult.npcs,
-                    party: partyResult.party,
+                    party,
                     trackers,
                     sessionNumber: session + 1,
                   }
@@ -632,13 +643,26 @@ export const useStore = create<AppState>()(
           for (const msg of partyResult.logs) get().pushLog(msg, 'system');
         }
 
+        const ended = get().getActiveCampaign();
+        const nextCombat = ended
+          ? combatKeepingParty(combat, ended.party, ended.system)
+          : emptyCombatState();
+        const resetHero =
+          ended && getSystemAdapter(ended.system).resources.kind === 'focus-hero';
         set((s) => ({
           combatByCampaign: patchActiveCombat(
             s.combatByCampaign,
             activeCampaignId,
-            campaign
-              ? combatKeepingParty(combat, campaign.party, campaign.system)
-              : emptyCombatState(),
+            resetHero
+              ? {
+                  ...nextCombat,
+                  combatants: nextCombat.combatants.map((c) =>
+                    c.kind === 'pc'
+                      ? { ...c, heroPoints: HERO_POINT_SESSION_START }
+                      : c,
+                  ),
+                }
+              : nextCombat,
           ),
           undoStack: [],
           concentrationPrompt: null,
@@ -1738,7 +1762,9 @@ export const useStore = create<AppState>()(
         );
         if (
           linked &&
-          (patch.currentHp !== undefined || patch.tempHp !== undefined)
+          (patch.currentHp !== undefined ||
+            patch.tempHp !== undefined ||
+            patch.heroPoints !== undefined)
         ) {
           get().updateCombatant(linked.id, {
             ...(patch.currentHp !== undefined
@@ -1752,13 +1778,17 @@ export const useStore = create<AppState>()(
             ...(patch.tempHp !== undefined
               ? { tempHp: Math.max(0, Math.floor(patch.tempHp)) }
               : {}),
+            ...(patch.heroPoints !== undefined
+              ? { heroPoints: clampHeroPoints(patch.heroPoints) }
+              : {}),
           });
           const rest: PartyLivePatch = { ...patch };
           delete rest.currentHp;
           delete rest.tempHp;
           if (
             rest.spellSlotsUsed !== undefined ||
-            rest.focusPointsCurrent !== undefined
+            rest.focusPointsCurrent !== undefined ||
+            rest.heroPoints !== undefined
           ) {
             get().upsertPartyMember(applyLivePatch(member, rest));
           }

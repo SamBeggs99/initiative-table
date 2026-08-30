@@ -216,25 +216,6 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          {adapter.resources.kind === 'focus-hero' && (
-            <label className="block">
-              <span className="mb-1 block text-xs uppercase tracking-wider text-muted">
-                Party hero points
-              </span>
-              <input
-                type="number"
-                min={0}
-                className="w-24 rounded border border-border bg-panel-2 px-2 py-1.5 font-mono-stats tabular-nums text-text"
-                value={campaign.heroPoints ?? 0}
-                onChange={(e) =>
-                  updateCampaign(campaign.id, {
-                    heroPoints: Math.max(0, Number(e.target.value) || 0),
-                  })
-                }
-              />
-            </label>
-          )}
-
           <label className="block">
             <span className="mb-1 block text-xs uppercase tracking-wider text-muted">
               Session number

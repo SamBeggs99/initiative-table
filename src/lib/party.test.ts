@@ -13,7 +13,12 @@ import {
   restPartyForNextFight,
   isPartyMemberInCombat,
   longRestPartyMember,
+  clampHeroPoints,
+  HERO_POINT_MAX,
+  HERO_POINT_SESSION_START,
+  partyDisplayedHeroPoints,
   partyDisplayedHp,
+  resetHeroPointsForSession,
   partyMembersNotInCombat,
   partyMemberToCombatant,
   proficiencyBonusForLevel,
@@ -54,6 +59,33 @@ describe('sheet vs live', () => {
     const next = adjustPartyLiveHp(m, 'heal', 50);
     expect(next.currentHp).toBe(20);
     expect(next.maxHp).toBe(20);
+  });
+
+  it('clamps hero points to 0–5 and treats missing as session start', () => {
+    expect(clampHeroPoints(5)).toBe(5);
+    expect(clampHeroPoints(8)).toBe(HERO_POINT_MAX);
+    expect(clampHeroPoints(-2)).toBe(0);
+    expect(clampHeroPoints(1.9)).toBe(1);
+    const m = blankPartyMember('camp', { system: 'pf2e' });
+    expect(m.heroPoints).toBe(HERO_POINT_SESSION_START);
+    expect(blankPartyMember('camp').heroPoints).toBeUndefined();
+    const spent = applyLivePatch(m, { heroPoints: 0 });
+    expect(spent.heroPoints).toBe(0);
+    expect(resetHeroPointsForSession(spent).heroPoints).toBe(
+      HERO_POINT_SESSION_START,
+    );
+  });
+
+  it('write-back copies hero points without touching sheet fields', () => {
+    const m = blankPartyMember('camp', { system: 'pf2e' });
+    m.id = 'pc1';
+    m.heroPoints = 3;
+    const combatant = partyMemberToCombatant(m);
+    combatant.heroPoints = 1;
+    const { party } = applyPartyLiveWriteBack([m], [combatant]);
+    expect(party[0]!.heroPoints).toBe(1);
+    expect(party[0]!.maxHp).toBe(m.maxHp);
+    expect(partyDisplayedHeroPoints(m, [combatant])).toBe(1);
   });
 
   it('partyDisplayedHp prefers linked combatant during fight', () => {

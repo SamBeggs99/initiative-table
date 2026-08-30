@@ -6,6 +6,7 @@ import {
   applyLevelUp,
   applyLivePatch,
   applyPartyLiveWriteBack,
+  applyPartySheetToCombatant,
   applySheetPatch,
   blankPartyMember,
   formatLevelEntry,
@@ -212,6 +213,48 @@ describe('sheet vs live', () => {
     expect(rested[0]!.initiative).toBeNull();
     expect(rested[0]!.reactionUsed).toBe(false);
     expect(rested[0]!.concentrating).toBe(false);
+  });
+
+  it('copies a renamed sheet onto the seated combatant without touching live HP', () => {
+    const member = blankPartyMember('camp');
+    member.id = 'pc1';
+    member.name = 'Kael';
+    member.class = 'Fighter';
+    member.ac = 16;
+    member.maxHp = 40;
+    member.currentHp = 40;
+    const seated = partyMemberToCombatant(member);
+    seated.hp = 22;
+    seated.initiative = 14;
+
+    const renamed = applySheetPatch(member, {
+      name: 'Kaelen',
+      class: 'Champion',
+      ac: 18,
+      maxHp: 44,
+    });
+    const next = applyPartySheetToCombatant(seated, renamed);
+    expect(next.name).toBe('Kaelen');
+    expect(next.charClass).toBe('Champion');
+    expect(next.ac).toBe(18);
+    expect(next.maxHp).toBe(44);
+    expect(next.hp).toBe(22);
+    expect(next.initiative).toBe(14);
+    expect(applyPartySheetToCombatant(next, renamed)).toBe(next);
+  });
+
+  it('clamps combat HP when the sheet max drops', () => {
+    const member = blankPartyMember('camp');
+    member.id = 'pc1';
+    member.maxHp = 40;
+    const seated = partyMemberToCombatant(member);
+    seated.hp = 38;
+    const next = applyPartySheetToCombatant(
+      seated,
+      applySheetPatch(member, { maxHp: 30 }),
+    );
+    expect(next.maxHp).toBe(30);
+    expect(next.hp).toBe(30);
   });
 
   it('does not match monsters that happen to share a name', () => {

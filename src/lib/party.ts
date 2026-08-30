@@ -467,6 +467,40 @@ export function partyMemberToCombatant(member: PartyMember): Combatant {
   });
 }
 
+/**
+ * Copy sheet fields onto a seated PC. Live HP, temp, hero points, initiative,
+ * and conditions stay on the combatant.
+ */
+export function applyPartySheetToCombatant(
+  combatant: Combatant,
+  member: PartyMember,
+): Combatant {
+  const maxHp = Math.max(1, member.maxHp);
+  const hp = Math.min(combatant.hp, maxHp);
+  const perception = member.passivePerception - 10;
+  if (
+    combatant.name === member.name &&
+    combatant.charClass === member.class &&
+    combatant.dex === member.dex &&
+    combatant.ac === member.ac &&
+    combatant.maxHp === maxHp &&
+    combatant.hp === hp &&
+    combatant.perception === perception
+  ) {
+    return combatant;
+  }
+  return {
+    ...combatant,
+    name: member.name,
+    charClass: member.class,
+    dex: member.dex,
+    ac: member.ac,
+    maxHp,
+    hp,
+    perception,
+  };
+}
+
 export function isPartyMemberInCombat(
   memberId: string,
   combatants: Combatant[],

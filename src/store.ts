@@ -56,6 +56,7 @@ import {
   partyMembersNotInCombat,
   partyMemberToCombatant,
   resetHeroPointsForSession,
+  applyPartySheetToCombatant,
   ensurePartyCombatants,
   restPartyForNextFight,
   shortRestCombatant,
@@ -128,20 +129,27 @@ function applyPartyToCombatants(
   party: PartyMember[],
   system: System,
 ): { combatants: Combatant[]; changed: boolean } {
-  const { combatants: next, added, removed } = ensurePartyCombatants(
+  const { combatants: seated, added, removed } = ensurePartyCombatants(
     combatants,
     party,
   );
-  if (added.length === 0 && removed === 0) {
+  const partyById = new Map(party.map((p) => [p.id, p]));
+  const addedIds = new Set(added.map((c) => c.id));
+  let sheetChanged = false;
+  const next = seated.map((c) => {
+    const row = addedIds.has(c.id) ? hydrateNewPartyCombatant(c, system) : c;
+    const member = row.sourcePartyMemberId
+      ? partyById.get(row.sourcePartyMemberId)
+      : undefined;
+    if (!member) return row;
+    const synced = applyPartySheetToCombatant(row, member);
+    if (synced !== row) sheetChanged = true;
+    return synced;
+  });
+  if (added.length === 0 && removed === 0 && !sheetChanged) {
     return { combatants, changed: false };
   }
-  const addedIds = new Set(added.map((c) => c.id));
-  return {
-    combatants: next.map((c) =>
-      addedIds.has(c.id) ? hydrateNewPartyCombatant(c, system) : c,
-    ),
-    changed: true,
-  };
+  return { combatants: next, changed: true };
 }
 
 function combatKeepingParty(
@@ -1594,6 +1602,12 @@ export const useStore = create<AppState>()(
             return { ...c, npcs };
           }),
         }));
+        const linked = get()
+          .getActiveCombat()
+          .combatants.filter((c) => c.sourceNpcId === npc.id && c.name !== npc.name);
+        for (const c of linked) {
+          get().updateCombatant(c.id, { name: npc.name });
+        }
       },
 
       deleteNpc: (id) => {

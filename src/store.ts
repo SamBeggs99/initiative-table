@@ -358,6 +358,15 @@ export interface AppState {
   removeCombatant: (id: string) => void;
   updateCombatant: (id: string, patch: Partial<Combatant>) => void;
   applyDamage: (id: string, amount: number, opts?: { type?: string }) => void;
+  /**
+   * One hit that lands as several typed clauses ("2d6 slashing plus 1d6 fire").
+   * Resistance is read per part; undo, the HP write and the concentration DC
+   * are per hit, because RAW that is a single instance of damage.
+   */
+  applyDamageParts: (
+    id: string,
+    parts: { amount: number; type?: string }[],
+  ) => void;
   applyHealing: (id: string, amount: number) => void;
   setTempHp: (id: string, amount: number) => void;
   rollDeathSave: (id: string) => void;
@@ -925,15 +934,23 @@ export const useStore = create<AppState>()(
       },
 
       applyDamage: (id, amount, opts) => {
+        get().applyDamageParts(id, [{ amount, type: opts?.type }]);
+      },
+
+      applyDamageParts: (id, parts) => {
         const { activeCampaignId, getActiveCombat } = get();
         if (!activeCampaignId) return;
         const target = getActiveCombat().combatants.find((c) => c.id === id);
         if (!target) return;
+        if (parts.length === 0) return;
 
-        const type = opts?.type?.trim();
-        const tier = type ? resistanceTier(target, type) : 'normal';
-        const incoming = Math.max(0, Math.floor(amount));
-        const dealt = applyResistance(incoming, tier);
+        const resolved = parts.map((part) => {
+          const type = part.type?.trim();
+          const tier = type ? resistanceTier(target, type) : 'normal';
+          const incoming = Math.max(0, Math.floor(part.amount));
+          return { type, tier, incoming, dealt: applyResistance(incoming, tier) };
+        });
+        const dealt = resolved.reduce((sum, r) => sum + r.dealt, 0);
 
         const snapshot: UndoSnapshot = {
           combatantId: id,
@@ -965,15 +982,23 @@ export const useStore = create<AppState>()(
             combatants: c.combatants.map((x) => (x.id === id ? { ...x, ...next } : x)),
           })),
         }));
-        const typeBit = type ? ` ${type}` : '';
-        const tierBit =
-          tier === 'normal'
-            ? ''
-            : tier === 'immune'
-              ? ' [immune]'
-              : ` [${tier}${incoming !== dealt ? ` ${incoming}→${dealt}` : ''}]`;
+        const describe = (r: (typeof resolved)[number]): string => {
+          const typeBit = r.type ? ` ${r.type}` : '';
+          const tierBit =
+            r.tier === 'normal'
+              ? ''
+              : r.tier === 'immune'
+                ? ' [immune]'
+                : ` [${r.tier}${r.incoming !== r.dealt ? ` ${r.incoming}→${r.dealt}` : ''}]`;
+          return `${r.dealt}${typeBit}${tierBit}`;
+        };
+        const breakdown =
+          resolved.length > 1
+            ? ` (${resolved.map(describe).join(' + ')})`
+            : '';
+        const head = resolved.length > 1 ? `${dealt}` : describe(resolved[0]!);
         get().pushLog(
-          `${target.name} takes ${dealt}${typeBit} damage${tierBit} → ${next.hp}/${target.maxHp}`,
+          `${target.name} takes ${head} damage${breakdown} → ${next.hp}/${target.maxHp}`,
           'damage',
         );
       },

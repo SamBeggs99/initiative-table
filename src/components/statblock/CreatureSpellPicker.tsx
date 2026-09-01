@@ -19,11 +19,13 @@ import {
   formatModifier,
 } from '../../lib/statblock-derived';
 import {
+  blankSpell,
   ensureSpellsSeeded,
   searchSpells,
   spellLevelLabel,
 } from '../../lib/spells';
 import type { Ability, Spell, StatBlock, StatBlockSpellRef } from '../../types';
+import { SpellEditor } from '../spells/SpellEditor';
 
 export function CreatureSpellPicker({
   block,
@@ -46,6 +48,7 @@ export function CreatureSpellPicker({
   const [ready, setReady] = useState(false);
   const [matching, setMatching] = useState(false);
   const [matchNote, setMatchNote] = useState<string | null>(null);
+  const [customDraft, setCustomDraft] = useState<Spell | null>(null);
 
   const ability = block.spellcasting?.ability;
   const derivedDc = ability ? derivedSpellSaveDc(block, ability) : null;
@@ -112,6 +115,18 @@ export function CreatureSpellPicker({
     setHits([]);
     setMatchNote(null);
   };
+
+  /** Homebrew lives in the spell catalog, so it needs a campaign to belong to. */
+  const canCreate = Boolean(campaignId);
+  const trimmedQuery = query.trim();
+  const openCustom = (name?: string) => {
+    if (!campaignId) return;
+    setCustomDraft(blankSpell(system, { campaignId, name }));
+  };
+  const offerCreate =
+    canCreate &&
+    trimmedQuery.length > 0 &&
+    !hits.some((s) => s.name.toLowerCase() === trimmedQuery.toLowerCase());
 
   const matchFromTrait = async () => {
     const names = extractPreparedSpellNames(traitText ?? '');
@@ -186,16 +201,28 @@ export function CreatureSpellPicker({
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
           Spells
         </h3>
-        {(namesInTraits > 0 || headerInTraits) && (
-          <button
-            type="button"
-            className="btn btn-sm"
-            disabled={matching}
-            onClick={() => void matchFromTrait()}
-          >
-            {matching ? 'Matching…' : 'Match catalog'}
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {(namesInTraits > 0 || headerInTraits) && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={matching}
+              onClick={() => void matchFromTrait()}
+            >
+              {matching ? 'Matching…' : 'Match catalog'}
+            </button>
+          )}
+          {canCreate && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              title="Write a homebrew spell and attach it"
+              onClick={() => openCustom()}
+            >
+              New spell
+            </button>
+          )}
+        </div>
       </div>
       <p className="text-[11px] leading-snug text-muted">
         Save DC and attack sit at the top of this section. Click a name on the
@@ -266,7 +293,7 @@ export function CreatureSpellPicker({
       )}
       <div className="relative">
         <label className="block text-xs text-muted">
-          Add from catalog
+          Add from catalog or homebrew
           <input
             className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 text-sm text-text"
             value={query}
@@ -276,7 +303,7 @@ export function CreatureSpellPicker({
             spellCheck={false}
           />
         </label>
-        {hits.length > 0 && (
+        {(hits.length > 0 || offerCreate) && (
           <ul className="absolute z-10 mt-0.5 max-h-48 w-full overflow-auto rounded border border-border bg-panel shadow-lg">
             {hits.map((spell) => (
               <li key={spell.id}>
@@ -292,6 +319,22 @@ export function CreatureSpellPicker({
                 </button>
               </li>
             ))}
+            {offerCreate && (
+              <li className={hits.length > 0 ? 'border-t border-border' : ''}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-accent hover:bg-panel-2"
+                  onClick={() => openCustom(trimmedQuery)}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    Write “{trimmedQuery}” as homebrew
+                  </span>
+                  <span className="shrink-0 font-mono-stats text-[10px] text-muted">
+                    New
+                  </span>
+                </button>
+              </li>
+            )}
           </ul>
         )}
       </div>
@@ -338,7 +381,20 @@ export function CreatureSpellPicker({
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-muted">None yet — search above to add.</p>
+        <p className="text-xs text-muted">
+          None yet — search above to add
+          {canCreate ? ', or write one with New spell.' : '.'}
+        </p>
+      )}
+      {customDraft && campaignId && (
+        <SpellEditor
+          system={system}
+          campaignId={campaignId}
+          initial={customDraft}
+          mode="new"
+          onClose={() => setCustomDraft(null)}
+          onSaved={(spell) => add(spell)}
+        />
       )}
     </section>
   );

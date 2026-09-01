@@ -14,6 +14,28 @@ export function blankCharacterNpc(name = 'New NPC'): NpcRecord {
   };
 }
 
+/**
+ * Give a roleplay NPC a stat block so they can be run in a fight. Keeps the
+ * record's own identity — name, portrait, notes, tags, relationships — and
+ * hands back a statted copy. An NPC that already has stats is returned as-is.
+ */
+export function statNpc(npc: NpcRecord, block: StatBlock): NpcRecord {
+  if (npc.kind === 'statted' && npc.statBlock) return npc;
+  const name = npc.name.trim() || block.name;
+  const max = block.hpAvg;
+  return {
+    ...npc,
+    kind: 'statted',
+    statBlock: {
+      ...structuredClone(block),
+      name,
+      ...(npc.portraitDataUrl ? { portraitDataUrl: npc.portraitDataUrl } : {}),
+    },
+    persistentHp: { current: max, max },
+    writeBackHp: true,
+  };
+}
+
 export function npcFromStatBlock(
   block: StatBlock,
   opts?: { name?: string; writeBackHp?: boolean },

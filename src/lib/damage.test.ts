@@ -6,7 +6,62 @@ import {
   concentrationDC,
   isBloodied,
 } from './damage';
+import {
+  entryDamageParts,
+  formatDamageParts,
+  formatEntryDamageLine,
+} from './damage-types';
 import { createCombatant } from '../types';
+
+describe('entryDamageParts', () => {
+  it('lists the primary clause first, then riders', () => {
+    expect(
+      entryDamageParts({
+        damage: { expr: '1d8+3', type: 'slashing' },
+        extraDamage: [{ expr: '2d6', type: 'fire' }],
+      }),
+    ).toEqual([
+      { expr: '1d8+3', type: 'slashing' },
+      { expr: '2d6', type: 'fire' },
+    ]);
+  });
+
+  it('drops clauses with no dice to roll', () => {
+    expect(
+      entryDamageParts({
+        damage: { expr: '', type: 'slashing' },
+        extraDamage: [{ expr: '  ', type: 'fire' }, { expr: '1d4', type: '' }],
+      }),
+    ).toEqual([{ expr: '1d4', type: '' }]);
+  });
+
+  it('is empty for an action that deals none', () => {
+    expect(entryDamageParts({})).toEqual([]);
+    expect(entryDamageParts(undefined)).toEqual([]);
+  });
+});
+
+describe('formatDamageParts', () => {
+  it('joins clauses with plus and keeps untyped dice bare', () => {
+    expect(
+      formatDamageParts([
+        { expr: '1d8+3', type: 'slashing' },
+        { expr: '2d6', type: 'fire' },
+      ]),
+    ).toBe('1d8+3 slashing plus 2d6 fire');
+    expect(formatDamageParts([{ expr: '8', type: '' }])).toBe('8');
+    expect(formatDamageParts([])).toBeNull();
+  });
+
+  it('formats straight off an entry', () => {
+    expect(
+      formatEntryDamageLine({
+        damage: { expr: '2d6', type: 'piercing' },
+        extraDamage: [{ expr: '1d6', type: 'poison' }],
+      }),
+    ).toBe('2d6 piercing plus 1d6 poison');
+  });
+});
 
 describe('applyDamage', () => {
   it('absorbs temp HP first then floors at 0', () => {

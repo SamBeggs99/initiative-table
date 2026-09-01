@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyNpcHpWriteBack,
+  blankCharacterNpc,
   importNpcJson,
   npcFromPaste,
   npcFromStatBlock,
   searchNpcs,
+  statNpc,
   woundedLabel,
 } from './npc';
 import type { NpcRecord, StatBlock } from '../types';
@@ -146,5 +148,40 @@ describe('npc helpers', () => {
     expect(npcs[0]?.notes).toContain('wounded, last seen session 12');
     expect(npcs[1]?.persistentHp).toEqual(skipped.persistentHp);
     expect(logs.some((l) => l.includes('Grix'))).toBe(true);
+  });
+});
+
+describe('statNpc', () => {
+  it('keeps who the NPC is while giving them a stat block', () => {
+    const npc: NpcRecord = {
+      ...blankCharacterNpc('Sable'),
+      notes: 'Owes the party a favour',
+      tags: ['thieves guild'],
+      faction: 'Grey Hands',
+      portraitDataUrl: 'data:image/png;base64,xx',
+    };
+    const statted = statNpc(npc, stubBlock('Bandit'));
+
+    expect(statted.kind).toBe('statted');
+    expect(statted.id).toBe(npc.id);
+    expect(statted.name).toBe('Sable');
+    expect(statted.statBlock?.name).toBe('Sable');
+    expect(statted.statBlock?.portraitDataUrl).toBe(npc.portraitDataUrl);
+    expect(statted.notes).toBe('Owes the party a favour');
+    expect(statted.faction).toBe('Grey Hands');
+    expect(statted.persistentHp).toEqual({ current: 7, max: 7 });
+    expect(statted.writeBackHp).toBe(true);
+  });
+
+  it('falls back to the block name for an unnamed NPC', () => {
+    expect(statNpc(blankCharacterNpc(''), stubBlock('Bandit')).name).toBe('');
+    expect(
+      statNpc(blankCharacterNpc(''), stubBlock('Bandit')).statBlock?.name,
+    ).toBe('Bandit');
+  });
+
+  it('leaves an already-statted NPC alone', () => {
+    const statted = npcFromStatBlock(stubBlock('Bandit'));
+    expect(statNpc(statted, stubBlock('Goblin'))).toBe(statted);
   });
 });

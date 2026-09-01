@@ -9,6 +9,7 @@ import { assignIdentityHues, hueHex } from '../../lib/identity';
 import { downloadText, sessionLogToMarkdown } from '../../lib/session-log';
 import { pendingLoot } from '../../lib/loot';
 import { resolveDamageExpr } from '../../lib/dice';
+import { entryDamageParts } from '../../lib/damage-types';
 import { resolveHpField, applyTempHp } from '../../lib/combat';
 import { resolveCombatantPortrait } from '../../lib/portrait';
 import { spendActionsRemaining, type ActionCost } from '../../lib/pf2e-actions';
@@ -65,6 +66,7 @@ export function InitiativeTracker({
   const sortByInitiative = useStore((s) => s.sortByInitiative);
   const updateCombatant = useStore((s) => s.updateCombatant);
   const applyDamage = useStore((s) => s.applyDamage);
+  const applyDamageParts = useStore((s) => s.applyDamageParts);
   const applyHealing = useStore((s) => s.applyHealing);
   const setTempHp = useStore((s) => s.setTempHp);
   const removeCombatant = useStore((s) => s.removeCombatant);
@@ -282,21 +284,32 @@ export function InitiativeTracker({
         }
       }
 
-      const expr = entry.damage?.expr?.trim();
-      if (!expr) {
+      const parts = entryDamageParts(entry);
+      if (parts.length === 0) {
         pushLog(`${actor.name} uses ${entry.name}`, 'info');
         return;
       }
 
-      let rolled;
+      let rolls;
       try {
-        rolled = resolveDamageExpr(expr);
+        rolls = parts.map((part) => ({
+          type: part.type.trim() || undefined,
+          ...resolveDamageExpr(part.expr.trim()),
+        }));
       } catch {
-        pushToast(`Could not roll damage “${expr}”`);
+        pushToast(
+          `Could not roll damage “${parts.map((p) => p.expr).join(' plus ')}”`,
+        );
         return;
       }
 
-      const typeLabel = entry.damage?.type?.trim() || 'damage';
+      const total = rolls.reduce((sum, r) => sum + r.total, 0);
+      // "9 slashing + 4 fire", or just "13 damage" for a single clause.
+      const summary =
+        rolls.length > 1
+          ? rolls.map((r) => `${r.total} ${r.type ?? 'damage'}`).join(' + ')
+          : `${total} ${rolls[0]!.type ?? 'damage'}`;
+      const detail = rolls.map((r) => r.detail).join(' + ');
       let targets = [...selectedIds].filter((id) => id !== actorId);
       if (targets.length === 0 && focusedId && focusedId !== actorId) {
         targets = [focusedId];
@@ -304,26 +317,28 @@ export function InitiativeTracker({
 
       if (targets.length === 0) {
         pushLog(
-          `${actor.name} ${entry.name}: ${rolled.total} ${typeLabel} rolled, no target selected (${rolled.detail})`,
+          `${actor.name} ${entry.name}: ${summary} rolled, no target selected (${detail})`,
           'info',
         );
         pushToast(
-          `${entry.name}: ${rolled.total} ${typeLabel} — select or focus a target`,
+          `${entry.name}: ${summary} — select or focus a target`,
         );
         return;
       }
 
-      const type = entry.damage?.type?.trim() || undefined;
       for (const id of targets) {
-        applyDamage(id, rolled.total, type ? { type } : undefined);
-        pulseRow(id, type);
+        applyDamageParts(
+          id,
+          rolls.map((r) => ({ amount: r.total, type: r.type })),
+        );
+        pulseRow(id, rolls[0]!.type);
       }
       const names = combat.combatants
         .filter((c) => targets.includes(c.id))
         .map((c) => c.name)
         .join(', ');
       pushLog(
-        `${actor.name} ${entry.name} → ${names}: ${rolled.total} ${typeLabel} (${rolled.detail})`,
+        `${actor.name} ${entry.name} → ${names}: ${summary} (${detail})`,
         'damage',
       );
     },
@@ -335,7 +350,7 @@ export function InitiativeTracker({
       updateCombatant,
       pushLog,
       pushToast,
-      applyDamage,
+      applyDamageParts,
       pulseRow,
     ],
   );

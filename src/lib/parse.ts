@@ -1,4 +1,4 @@
-import type { Ability, Entry } from '../types';
+import type { Ability, DamagePart, Entry } from '../types';
 import { normalizeDamageType } from './damage-types';
 
 export interface ParsedAttack {
@@ -105,21 +105,28 @@ export function parseSpellDamage(
   return undefined;
 }
 
+/** Every damage clause on a Hit: line, primary first ("… plus 1d6 fire"). */
+export function damagePartsFromDesc(desc: string): DamagePart[] {
+  return parseDamage(desc).map((p) => ({
+    expr: p.dice,
+    type: normalizeDamageType(p.type),
+  }));
+}
+
 /** Pull the first Hit: damage clause into structured Entry.damage. */
 export function damageFieldsFromDesc(desc: string): Entry['damage'] | undefined {
-  const parts = parseDamage(desc);
-  const first = parts[0];
-  if (!first) return undefined;
-  return {
-    expr: first.dice,
-    type: normalizeDamageType(first.type),
-  };
+  return damagePartsFromDesc(desc)[0];
 }
 
 export function enrichEntryDamage(entry: Entry): Entry {
   if (entry.damage?.expr?.trim()) return entry;
-  const damage = damageFieldsFromDesc(entry.desc);
-  return damage ? { ...entry, damage } : entry;
+  const [damage, ...extra] = damagePartsFromDesc(entry.desc);
+  if (!damage) return entry;
+  return {
+    ...entry,
+    damage,
+    ...(extra.length > 0 ? { extraDamage: extra } : {}),
+  };
 }
 
 /**

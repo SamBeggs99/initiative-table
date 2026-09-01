@@ -43,6 +43,14 @@ interface CreatureEditorProps {
   mode: EditorMode;
   /** Source creature for clone/edit; ignored for new/import until paste lands. */
   initial?: StatBlock;
+  /**
+   * Editing a block that lives on something else (an NPC record, say) rather
+   * than in the bestiary. Save hands the block back instead of writing it to
+   * the catalog, and the catalog-only controls stay hidden.
+   */
+  embedded?: boolean;
+  /** Header label. Defaults to one read off `mode`. */
+  title?: string;
   onClose: () => void;
   onSaved: (creature: StatBlock) => void;
   onDeleted?: (id: string) => void;
@@ -100,6 +108,8 @@ export function CreatureEditor({
   campaignId,
   mode,
   initial,
+  embedded,
+  title,
   onClose,
   onSaved,
   onDeleted,
@@ -232,6 +242,17 @@ export function CreatureEditor({
       setError('Name is required.');
       return;
     }
+    if (embedded) {
+      const parsedSpeed = parseSpeedField(speedText);
+      onSaved({
+        ...draft,
+        speed: parsedSpeed ?? draft.speed,
+        name: draft.name.trim(),
+        updatedAt: Date.now(),
+      });
+      onClose();
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -295,10 +316,14 @@ export function CreatureEditor({
       <div className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden card shadow-2xl">
         <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
           <h2 id="creature-editor-title" className="text-sm font-semibold text-text">
-            {mode === 'new' && 'New creature'}
-            {mode === 'clone' && 'Clone creature'}
-            {mode === 'import' && 'Import creature'}
-            {mode === 'edit' && 'Edit homebrew'}
+            {title ?? (
+              <>
+                {mode === 'new' && 'New creature'}
+                {mode === 'clone' && 'Clone creature'}
+                {mode === 'import' && 'Import creature'}
+                {mode === 'edit' && 'Edit homebrew'}
+              </>
+            )}
           </h2>
           <span className="text-xs text-muted">{adapter.label}</span>
           <div className="ml-auto flex flex-wrap gap-1">
@@ -309,7 +334,7 @@ export function CreatureEditor({
             >
               Export JSON
             </button>
-            {mode !== 'new' && draft.origin === 'homebrew' && (
+            {!embedded && mode !== 'new' && draft.origin === 'homebrew' && (
               <>
                 <button
                   type="button"
@@ -340,7 +365,7 @@ export function CreatureEditor({
               className="btn btn-accent"
               onClick={save}
             >
-              {saving ? 'Saving…' : 'Save homebrew'}
+              {saving ? 'Saving…' : embedded ? 'Done' : 'Save homebrew'}
             </button>
           </div>
         </header>

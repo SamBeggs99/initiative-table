@@ -6,12 +6,14 @@ import {
   npcFromPaste,
   npcFromStatBlock,
   searchNpcs,
+  statNpc,
   woundedLabel,
 } from '../lib/npc';
 import { blankStatBlock } from '../lib/statblock-derived';
 import { useStore } from '../store';
-import type { Entry, NpcRecord, StatBlock } from '../types';
+import type { NpcRecord, StatBlock, System } from '../types';
 import { ConfirmDialog } from './ui/AskDialog';
+import { CreatureEditor } from './statblock/CreatureEditor';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
 
 type CreateMode = 'paste' | 'json' | 'manual-character' | 'manual-statted' | null;
@@ -25,17 +27,22 @@ function tagsFromInput(raw: string): string[] {
 
 export function NpcQuickEditor({
   npc,
+  system,
+  campaignId,
   onSave,
   onCancel,
   review,
 }: {
   npc: NpcRecord;
+  system: System;
+  campaignId: string;
   onSave: (npc: NpcRecord) => void;
   onCancel: () => void;
   review?: { unparsed: string[]; confidenceNotes: string[]; warnings: string[] };
 }) {
   const [draft, setDraft] = useState<NpcRecord>(() => structuredClone(npc));
   const [tagText, setTagText] = useState(npc.tags.join(', '));
+  const [blockEditor, setBlockEditor] = useState(false);
 
   const patch = (p: Partial<NpcRecord>) => setDraft((d) => ({ ...d, ...p }));
   const patchBlock = (p: Partial<StatBlock>) =>
@@ -52,8 +59,25 @@ export function NpcQuickEditor({
     }
   };
 
-  const actions = draft.statBlock?.actions ?? [];
-  const setActions = (next: Entry[]) => patchBlock({ actions: next });
+  const block = draft.statBlock;
+  const canDo = block
+    ? [
+        { one: 'action', many: 'actions', n: block.actions.length },
+        {
+          one: 'bonus action',
+          many: 'bonus actions',
+          n: block.bonusActions.length,
+        },
+        { one: 'reaction', many: 'reactions', n: block.reactions.length },
+        {
+          one: 'legendary action',
+          many: 'legendary actions',
+          n: block.legendaryActions.length,
+        },
+        { one: 'trait', many: 'traits', n: block.traits.length },
+        { one: 'spell', many: 'spells', n: block.spellRefs?.length ?? 0 },
+      ].filter((b) => b.n > 0)
+    : [];
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center overflow-auto bg-black/70 backdrop-blur-sm p-4">
@@ -228,44 +252,53 @@ export function NpcQuickEditor({
             />
           </label>
 
-          {draft.kind === 'statted' && draft.statBlock && (
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs text-muted">Actions</span>
+          {draft.kind === 'statted' && block ? (
+            <div className="rounded border border-border p-2">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs text-muted">What they can do</span>
                 <button
                   type="button"
-                  className="text-[11px] text-accent"
-                  onClick={() =>
-                    setActions([...actions, { name: 'New action', desc: '' }])
-                  }
+                  className="btn btn-sm"
+                  onClick={() => setBlockEditor(true)}
                 >
-                  + Add
+                  Edit stat block
                 </button>
               </div>
-              <ul className="space-y-2">
-                {actions.map((a, i) => (
-                  <li key={i} className="space-y-1 rounded border border-border p-2">
-                    <input
-                      className="w-full rounded border border-border bg-panel-2 px-2 py-1 text-xs text-text"
-                      value={a.name}
-                      onChange={(e) => {
-                        const next = [...actions];
-                        next[i] = { ...a, name: e.target.value };
-                        setActions(next);
-                      }}
-                    />
-                    <textarea
-                      className="min-h-[48px] w-full rounded border border-border bg-panel-2 px-2 py-1 text-xs text-text"
-                      value={a.desc}
-                      onChange={(e) => {
-                        const next = [...actions];
-                        next[i] = { ...a, desc: e.target.value };
-                        setActions(next);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
+              {canDo.length > 0 ? (
+                <p className="text-[11px] text-muted">
+                  {canDo
+                    .map((b) => `${b.n} ${b.n === 1 ? b.one : b.many}`)
+                    .join(' · ')}{' '}
+                  — these ride along onto the tape.
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted">
+                  Nothing yet. Give them actions, spells, traits and reactions
+                  so you can run them in a fight.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded border border-dashed border-border p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted">No stats</span>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    const fresh = blankStatBlock(system, { campaignId });
+                    fresh.name = draft.name.trim() || 'NPC';
+                    setDraft((d) => statNpc(d, fresh));
+                    setBlockEditor(true);
+                  }}
+                >
+                  Give them stats
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-muted">
+                Roleplay only. Add stats to run them in combat — they keep their
+                notes, portrait and relationships.
+              </p>
             </div>
           )}
         </div>
@@ -295,6 +328,28 @@ export function NpcQuickEditor({
           </button>
         </div>
       </div>
+      {blockEditor && block && (
+        <CreatureEditor
+          system={block.system ?? system}
+          campaignId={block.campaignId ?? campaignId}
+          mode="edit"
+          initial={block}
+          embedded
+          title={`${draft.name.trim() || 'NPC'} — stat block`}
+          onClose={() => setBlockEditor(false)}
+          onSaved={(next) =>
+            setDraft((d) => ({
+              ...d,
+              statBlock: next,
+              name: d.name.trim() || next.name,
+              persistentHp: d.persistentHp ?? {
+                current: next.hpAvg,
+                max: next.hpAvg,
+              },
+            }))
+          }
+        />
+      )}
     </div>
   );
 }
@@ -322,6 +377,8 @@ function IntakeModal({
     return (
       <NpcQuickEditor
         npc={blankCharacterNpc('')}
+        system={system}
+        campaignId={campaignId}
         onCancel={onClose}
         onSave={(npc) => onReady(npc)}
       />
@@ -334,6 +391,8 @@ function IntakeModal({
     return (
       <NpcQuickEditor
         npc={npcFromStatBlock(block)}
+        system={system}
+        campaignId={campaignId}
         onCancel={onClose}
         onSave={(npc) => onReady(npc)}
       />
@@ -551,6 +610,8 @@ export function NpcPanel() {
       {editing && (
         <NpcQuickEditor
           npc={editing.npc}
+          system={campaign.system}
+          campaignId={campaign.id}
           review={editing.review}
           onCancel={() => setEditing(null)}
           onSave={(npc) => {

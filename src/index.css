@@ -1008,19 +1008,28 @@ html[data-theme='night'] {
     );
   }
 
-  /* Active turn: the row lifts to paper-white with a bronze edge and warm wash. */
+  /*
+   * Active turn. Previously a 10% wash and a 4px rail, which is not enough to
+   * find in a dim room at a glance — twenty rows all shouted equally. Now the
+   * row lifts off the page: a wider rail, a deeper wash, a real shadow, and a
+   * hairline ring so the edge is legible against any neighbour state.
+   */
   .row-active,
   .row-active:hover {
     background:
       linear-gradient(
         90deg,
-        color-mix(in srgb, var(--color-accent) 10%, transparent),
-        transparent 34%
+        color-mix(in srgb, var(--color-accent) 20%, transparent),
+        color-mix(in srgb, var(--color-accent) 5%, transparent) 45%,
+        transparent 72%
       ),
       var(--color-panel);
     box-shadow:
-      inset 4px 0 0 0 var(--color-accent),
-      0 1px 3px rgba(43, 38, 32, 0.08);
+      inset 6px 0 0 0 var(--color-accent),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+      0 2px 10px -2px color-mix(in srgb, var(--color-accent) 30%, transparent),
+      0 1px 3px rgba(43, 38, 32, 0.1);
+    z-index: 2;
   }
 
   /* Checked for bulk HP / AoE — distinct from whose turn it is. */
@@ -1273,6 +1282,80 @@ html[data-theme='night'] {
     );
   }
 
+  /* ---------- Death save pips ---------- */
+  .death-pips {
+    display: inline-flex;
+    gap: 0.2rem;
+  }
+
+  .death-pip {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 999px;
+    border: 1.5px solid color-mix(in srgb, var(--color-border-strong) 80%, transparent);
+    background: transparent;
+    transition:
+      background 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .death-pip-save.is-on {
+    background: var(--color-heal);
+    border-color: var(--color-heal);
+    box-shadow: 0 0 5px -1px color-mix(in srgb, var(--color-heal) 70%, transparent);
+  }
+
+  .death-pip-fail.is-on {
+    background: var(--color-damage);
+    border-color: var(--color-damage);
+    box-shadow: 0 0 5px -1px color-mix(in srgb, var(--color-damage) 70%, transparent);
+  }
+
+  /* The third failure ends the character, so it is drawn heavier than the others. */
+  .death-pip-final {
+    width: 0.72rem;
+    height: 0.72rem;
+    border-width: 2px;
+  }
+
+  .death-pip-final.is-on {
+    box-shadow: 0 0 8px -1px color-mix(in srgb, var(--color-damage) 85%, transparent);
+  }
+
+  .death-pips-divider {
+    width: 1px;
+    height: 0.7rem;
+    background: color-mix(in srgb, var(--color-border-strong) 70%, transparent);
+  }
+
+  /* ---------- HP bloodied threshold ---------- */
+  /*
+   * A tick at the halfway mark, so "one more hit and they are bloodied" is
+   * something you see rather than something you work out. Sits above the fill
+   * and below the glass sheen.
+   */
+  .hp-track::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: 50%;
+    width: 1px;
+    z-index: 1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--color-text) 34%, transparent);
+  }
+
+  :root[data-theme='night'] .hp-track::before {
+    background: color-mix(in srgb, #000000 55%, transparent);
+  }
+
+  /* Meaningless at a glance in shared-screen mode, where HP is banded anyway. */
+  :root[data-shared='true'] .hp-track::before {
+    display: none;
+  }
+
   .hp-fill {
     height: 100%;
     transition: width 300ms ease-out;
@@ -1455,32 +1538,522 @@ html[data-theme='night'] {
     }
   }
 
-  /* Damage hit light — colour comes from --flash (damage type). */
-  .row-flash-light {
+  /* ==========================================================================
+   * Hit effects — the light-and-motion layer on a combat row.
+   *
+   * Colour says which damage type; motion says what happened. Every rule here
+   * animates transform/opacity only, so an AoE landing on twenty selected rows
+   * stays on the compositor instead of thrashing layout. Nothing sets
+   * will-change: eighty short-lived hints cost more than they save.
+   *
+   * Reduced motion does not remove these — it substitutes a static tint, so a
+   * DM who cannot take animation still gets the damage-type read. See the
+   * override at the end of this block.
+   * ========================================================================== */
+  .hit-fx {
     position: absolute;
     inset: 0;
     z-index: 1;
+    overflow: hidden;
     pointer-events: none;
+  }
+
+  .hit-fx-wash {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
     background:
       radial-gradient(
-        ellipse 55% 130% at 90% 50%,
-        color-mix(in srgb, var(--flash, var(--color-damage)) 58%, transparent),
+        ellipse 55% 130% at 88% 50%,
+        color-mix(in srgb, var(--fx) 52%, transparent),
         transparent 64%
       ),
       linear-gradient(
         90deg,
-        color-mix(in srgb, var(--flash, var(--color-damage)) 14%, transparent),
-        transparent 52%
+        color-mix(in srgb, var(--fx) 13%, transparent),
+        transparent 54%
       );
-    animation: row-flash-light 560ms ease-out forwards;
+    animation: fx-wash var(--fx-ms) ease-out forwards;
   }
 
-  @keyframes row-flash-light {
-    0% {
-      opacity: 1;
-    }
+  .hit-fx-emphatic .hit-fx-wash {
+    background:
+      radial-gradient(
+        ellipse 80% 150% at 50% 50%,
+        color-mix(in srgb, var(--fx) 72%, transparent),
+        transparent 68%
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--fx) 26%, transparent),
+        color-mix(in srgb, var(--fx) 8%, transparent) 60%,
+        transparent
+      );
+  }
+
+  @keyframes fx-wash {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .hit-fx-bit {
+    position: absolute;
+    pointer-events: none;
+    /* Each particle is offset along the row and delayed by its index. */
+    --x: calc((var(--i) + 0.5) / var(--n) * 100%);
+    --delay: calc(var(--i) * 42ms);
+  }
+
+  /* ---------- rise · fire, acid, poison, spirit ---------- */
+  .hit-fx-rise .hit-fx-bit {
+    left: var(--x);
+    bottom: -0.35rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-left: -0.25rem;
+    border-radius: 50% 50% 45% 45%;
+    background: radial-gradient(
+      circle at 50% 70%,
+      color-mix(in srgb, var(--fx) 92%, white 18%),
+      color-mix(in srgb, var(--fx) 70%, transparent) 62%,
+      transparent 74%
+    );
+    animation: fx-rise var(--fx-ms) cubic-bezier(0.3, 0.7, 0.4, 1) var(--delay) forwards;
+  }
+
+  @keyframes fx-rise {
+    0% { opacity: 0; transform: translateY(0) scale(0.5); }
+    22% { opacity: 0.95; }
+    /* The lateral wobble is what makes it read as a flame lick, not a bubble. */
+    55% { transform: translateY(-1.1rem) scale(1.15) translateX(0.14rem); }
+    100% { opacity: 0; transform: translateY(-2.3rem) scale(0.35) translateX(-0.1rem); }
+  }
+
+  /* ---------- mend · healing ---------- */
+  .hit-fx-mend .hit-fx-bit {
+    left: var(--x);
+    bottom: -0.3rem;
+    width: 0.5rem;
+    height: 0.34rem;
+    margin-left: -0.25rem;
+    /* A leaf, not a spark: the botanical motif carried into the effect layer. */
+    border-radius: 100% 0 100% 0;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--fx) 95%, white 22%),
+      color-mix(in srgb, var(--fx) 62%, transparent)
+    );
+    animation: fx-mend var(--fx-ms) cubic-bezier(0.25, 0.6, 0.3, 1)
+      calc(var(--i) * 88ms) forwards;
+  }
+
+  @keyframes fx-mend {
+    0% { opacity: 0; transform: translateY(0.2rem) rotate(-20deg) scale(0.4); }
+    25% { opacity: 0.9; }
+    /* Drifts rather than shoots — healing is a relief, not an impact. */
+    60% { transform: translateY(-1.2rem) rotate(28deg) scale(1) translateX(0.2rem); }
     100% {
       opacity: 0;
+      transform: translateY(-2.4rem) rotate(64deg) scale(0.8) translateX(-0.15rem);
+    }
+  }
+
+  .hit-fx-mend .hit-fx-wash {
+    background: radial-gradient(
+      ellipse 70% 160% at 50% 100%,
+      color-mix(in srgb, var(--fx) 38%, transparent),
+      transparent 70%
+    );
+    animation: fx-mend-wash var(--fx-ms) ease-in-out forwards;
+  }
+
+  /* Swells in and eases out, instead of the hit-flash instant-on. */
+  @keyframes fx-mend-wash {
+    0% { opacity: 0; }
+    35% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ---------- ward · temporary hit points ---------- */
+  .hit-fx-ward .hit-fx-wash {
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--fx) 30%, transparent), transparent 22%),
+      linear-gradient(270deg, color-mix(in srgb, var(--fx) 30%, transparent), transparent 22%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fx) 55%, transparent);
+    animation: fx-ward var(--fx-ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Gathers at the edges and holds a beat before releasing — a shell, not a hit. */
+  @keyframes fx-ward {
+    0% { opacity: 0; transform: scaleX(1.06); }
+    30% { opacity: 1; transform: scaleX(1); }
+    70% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  /* ---------- frost · cold ---------- */
+  .hit-fx-frost .hit-fx-bit {
+    top: 50%;
+    left: var(--x);
+    width: 0.42rem;
+    height: 0.42rem;
+    margin: -0.21rem 0 0 -0.21rem;
+    background: color-mix(in srgb, var(--fx) 85%, white 24%);
+    clip-path: polygon(
+      50% 0,
+      61% 39%,
+      100% 50%,
+      61% 61%,
+      50% 100%,
+      39% 61%,
+      0 50%,
+      39% 39%
+    );
+    animation: fx-frost var(--fx-ms) cubic-bezier(0.16, 1, 0.3, 1) var(--delay) forwards;
+  }
+
+  @keyframes fx-frost {
+    /* Arrives from off-row and locks into place, then fades. */
+    0% { opacity: 0; transform: translateY(0.9rem) scale(0.2) rotate(-40deg); }
+    45% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+    72% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translateY(-0.2rem) scale(0.9) rotate(10deg); }
+  }
+
+  .hit-fx-frost .hit-fx-wash {
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--fx) 34%, transparent), transparent 30%),
+      linear-gradient(270deg, color-mix(in srgb, var(--fx) 34%, transparent), transparent 30%);
+  }
+
+  /* ---------- crackle · lightning ---------- */
+  .hit-fx-crackle .hit-fx-bit {
+    top: 0;
+    bottom: 0;
+    left: var(--x);
+    width: 2px;
+    margin-left: -1px;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--fx) 95%, white 30%) 30%,
+      color-mix(in srgb, var(--fx) 95%, white 30%) 70%,
+      transparent
+    );
+    /* Kinked, so it reads as a bolt rather than a tally mark. */
+    clip-path: polygon(0 0, 100% 0, 20% 45%, 100% 55%, 0 100%);
+    animation: fx-crackle var(--fx-ms) steps(1, end) calc(var(--i) * 70ms) forwards;
+  }
+
+  /* Staccato on/off — lightning does not fade, it stops. */
+  @keyframes fx-crackle {
+    0%, 24% { opacity: 1; transform: scaleY(1); }
+    25%, 49% { opacity: 0; }
+    50%, 74% { opacity: 1; transform: scaleY(0.92); }
+    75%, 100% { opacity: 0; }
+  }
+
+  .hit-fx-crackle .hit-fx-wash {
+    animation-duration: 240ms;
+  }
+
+  /* ---------- shock · thunder, force, crits ---------- */
+  .hit-fx-shock .hit-fx-bit {
+    top: 50%;
+    left: 50%;
+    width: 2.2rem;
+    height: 2.2rem;
+    margin: -1.1rem 0 0 -1.1rem;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--fx) 70%, transparent);
+    animation: fx-shock var(--fx-ms) cubic-bezier(0.16, 1, 0.3, 1)
+      calc(var(--i) * 90ms) forwards;
+  }
+
+  @keyframes fx-shock {
+    0% { opacity: 0.9; transform: scale(0.25); }
+    100% { opacity: 0; transform: scale(3.4); }
+  }
+
+  /* Crits push the rings wider and brighter. */
+  .hit-fx-emphatic .hit-fx-bit {
+    border-width: 3px;
+    border-color: color-mix(in srgb, var(--fx) 90%, white 20%);
+    animation-timing-function: cubic-bezier(0.12, 1, 0.2, 1);
+  }
+
+  .hit-fx-emphatic.hit-fx-shock .hit-fx-bit {
+    animation-name: fx-shock-crit;
+  }
+
+  @keyframes fx-shock-crit {
+    0% { opacity: 1; transform: scale(0.2); }
+    100% { opacity: 0; transform: scale(5); }
+  }
+
+  /* ---------- bloom · radiant, vitality ---------- */
+  .hit-fx-bloom .hit-fx-wash {
+    /* Held well below full strength: radiant is the brightest colour on the
+       tape and at full alpha it washed the HP numbers out. */
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--fx) 46%, transparent),
+      color-mix(in srgb, var(--fx) 20%, transparent) 45%,
+      transparent 70%
+    );
+    animation: fx-bloom var(--fx-ms) cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  }
+
+  @keyframes fx-bloom {
+    0% { opacity: 0; transform: scale(0.35); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+
+  /* ---------- wither · necrotic, void ---------- */
+  .hit-fx-wither .hit-fx-wash {
+    /* Inverted: dark closes in from the frame rather than light landing on it. */
+    background: radial-gradient(
+      ellipse 120% 180% at 50% 50%,
+      transparent 26%,
+      color-mix(in srgb, var(--fx) 38%, transparent) 72%,
+      color-mix(in srgb, var(--fx) 60%, black 25%)
+    );
+    animation: fx-wither var(--fx-ms) ease-in-out forwards;
+  }
+
+  @keyframes fx-wither {
+    0% { opacity: 0; transform: scale(1.35); }
+    45% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.9); }
+  }
+
+  /* ---------- ripple · psychic, mental ---------- */
+  .hit-fx-ripple .hit-fx-bit {
+    top: -20%;
+    bottom: -20%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--fx) 30%, transparent) 45%,
+      color-mix(in srgb, var(--fx) 46%, transparent) 50%,
+      color-mix(in srgb, var(--fx) 30%, transparent) 55%,
+      transparent
+    );
+    animation: fx-ripple var(--fx-ms) ease-in-out calc(var(--i) * 130ms) forwards;
+  }
+
+  @keyframes fx-ripple {
+    0% { opacity: 0; transform: translateX(-100%) skewX(-8deg); }
+    30% { opacity: 0.85; }
+    100% { opacity: 0; transform: translateX(100%) skewX(8deg); }
+  }
+
+  /* ---------- slash · slashing, and the quiet miss ---------- */
+  .hit-fx-slash .hit-fx-bit {
+    top: -40%;
+    bottom: -40%;
+    left: 50%;
+    width: 0.7rem;
+    margin-left: -0.35rem;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--fx) 85%, white 20%) 25%,
+      color-mix(in srgb, var(--fx) 85%, white 20%) 75%,
+      transparent
+    );
+    animation: fx-slash var(--fx-ms) cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+  }
+
+  @keyframes fx-slash {
+    0% { opacity: 0; transform: translateX(-6rem) rotate(18deg) scaleY(0.7); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(6rem) rotate(18deg) scaleY(1); }
+  }
+
+  /* ---------- impact · piercing, bludgeoning, untyped ---------- */
+  .hit-fx-impact .hit-fx-bit {
+    top: 50%;
+    right: 0;
+    height: 0.2rem;
+    width: 60%;
+    margin-top: -0.1rem;
+    transform-origin: right center;
+    background: linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--fx) 90%, white 15%),
+      transparent
+    );
+    animation: fx-impact var(--fx-ms) cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+  }
+
+  @keyframes fx-impact {
+    0% { opacity: 0; transform: scaleX(0.1); }
+    35% { opacity: 1; transform: scaleX(1); }
+    100% { opacity: 0; transform: scaleX(1); }
+  }
+
+  /* ---------- drip · bleed ---------- */
+  .hit-fx-drip .hit-fx-bit {
+    top: -0.4rem;
+    left: var(--x);
+    width: 0.32rem;
+    height: 0.42rem;
+    margin-left: -0.16rem;
+    border-radius: 45% 45% 50% 50%;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fx) 65%, transparent),
+      color-mix(in srgb, var(--fx) 95%, black 10%)
+    );
+    animation: fx-drip var(--fx-ms) cubic-bezier(0.45, 0, 0.7, 1)
+      calc(var(--i) * 110ms) forwards;
+  }
+
+  @keyframes fx-drip {
+    /* Accelerates downward — gravity, not a fade. */
+    0% { opacity: 0; transform: translateY(0) scaleY(0.6); }
+    20% { opacity: 1; transform: translateY(0.4rem) scaleY(1); }
+    100% { opacity: 0; transform: translateY(2.6rem) scaleY(1.5); }
+  }
+
+  .hit-fx-drip .hit-fx-wash {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fx) 26%, transparent),
+      transparent 60%
+    );
+  }
+
+  /* ---------- expire · an enemy dropping ---------- */
+  /*
+   * Not a hit: no strike, no particles. The colour drains left-to-right and the
+   * row settles, as the one-shot transition into the persistent .row-dead state
+   * that follows it. Grey rather than red, because red would read as one more
+   * point of damage rather than the end of the fight for this creature.
+   */
+  .hit-fx-expire .hit-fx-wash {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--fx) 42%, transparent),
+      color-mix(in srgb, var(--fx) 22%, transparent) 55%,
+      transparent
+    );
+    animation: fx-expire var(--fx-ms) cubic-bezier(0.3, 0, 0.5, 1) forwards;
+  }
+
+  @keyframes fx-expire {
+    0% { opacity: 0; transform: translateX(-8%); }
+    30% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(4%); }
+  }
+
+  /* A hairline that sweeps across and out, like a line being drawn through. */
+  .hit-fx-expire::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform-origin: left center;
+    background: color-mix(in srgb, var(--fx) 70%, transparent);
+    animation: fx-expire-rule var(--fx-ms) cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  }
+
+  @keyframes fx-expire-rule {
+    0% { opacity: 0; transform: scaleX(0); }
+    45% { opacity: 0.9; transform: scaleX(1); }
+    100% { opacity: 0; transform: scaleX(1); }
+  }
+
+  /* ---------- collapse · a PC going down ---------- */
+  /*
+   * An alarm, not a fade. Two amber pulses from the row's own edges, so a
+   * downed hero reads as a problem to solve this round rather than something
+   * that is over.
+   */
+  .hit-fx-collapse .hit-fx-wash {
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--fx) 48%, transparent), transparent 34%),
+      linear-gradient(270deg, color-mix(in srgb, var(--fx) 48%, transparent), transparent 34%);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fx) 62%, transparent);
+    animation: fx-collapse var(--fx-ms) ease-in-out forwards;
+  }
+
+  @keyframes fx-collapse {
+    0% { opacity: 0; }
+    14% { opacity: 1; }
+    36% { opacity: 0.15; }
+    58% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /*
+   * Persistent state, not the one-shot: a downed PC keeps a slow amber breath
+   * on the left rail for as long as they are down, because the DM needs to be
+   * reminded every round, not once.
+   */
+  .row-downed {
+    animation: row-downed-breath 2600ms ease-in-out infinite;
+  }
+
+  @keyframes row-downed-breath {
+    0%, 100% {
+      box-shadow: inset 4px 0 0 0 color-mix(in srgb, var(--color-amber) 55%, transparent);
+    }
+    50% {
+      box-shadow: inset 4px 0 0 0 var(--color-amber);
+    }
+  }
+
+  /* The active row's own emphasis outranks the breath. */
+  .row-active.row-downed {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Substitute a steady rail for the breath — the cue stays, the pulse goes. */
+    .row-downed {
+      animation: none !important;
+      box-shadow: inset 4px 0 0 0 var(--color-amber) !important;
+    }
+
+    .hit-fx-expire::after {
+      display: none !important;
+    }
+  }
+
+  /*
+   * Reduced motion: substitute, do not remove. The blanket rule in the base
+   * layer collapses every duration to 0.01ms, which would delete the
+   * damage-type read entirely — so these get a static tinted hold instead,
+   * long enough to notice, with no travel at all.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .hit-fx-bit {
+      display: none !important;
+    }
+
+    .hit-fx-wash {
+      opacity: 1;
+      background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--fx) 30%, transparent),
+        color-mix(in srgb, var(--fx) 10%, transparent) 55%,
+        transparent
+      ) !important;
+      box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--fx) 80%, transparent);
+      transform: none !important;
+      animation: fx-static-hold 900ms steps(1, end) forwards !important;
+    }
+
+    @keyframes fx-static-hold {
+      0%, 80% { opacity: 1; }
+      100% { opacity: 0; }
     }
   }
 

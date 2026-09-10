@@ -13,13 +13,14 @@ import type { StatBlockFormModel } from '../../systems';
 import type { Combatant, Entry } from '../../types';
 import { ConditionChips } from './ConditionChips';
 import { HpBar } from './HpBar';
+import { DeathSavePips } from './DeathSavePips';
 import { ActionStrip } from './ActionStrip';
 import { HeroPointPips } from './HeroPointPips';
 import { ResourcePips } from './ResourcePips';
 import type { ActionCost } from '../../lib/pf2e-actions';
 import { DamageTypeSelect } from './DamageTypeSelect';
 import { PortraitThumb } from '../ui/Portrait';
-import { damageTypeFlashColor } from '../../lib/damage-types';
+import { HitEffect } from './HitEffect';
 import type { PortraitRef } from '../../lib/portrait';
 
 const ROLE_RAIL: Record<CombatantRole, string> = {
@@ -124,14 +125,13 @@ export function CombatantRow({
         selected ? 'row-selected row-reveal' : ''
       } ${focused && !active ? 'row-focused' : ''} ${
         deadMonster ? 'row-dead line-through' : ''
-      } ${turnPulse && active ? 'row-turn-pulse' : ''}`}
+      } ${downedPc ? 'row-downed' : ''} ${
+        turnPulse && active ? 'row-turn-pulse' : ''
+      }`}
       style={
-        {
-          ...(hue ? { '--identity': hue } : {}),
-          ...(flash
-            ? { '--flash': damageTypeFlashColor(flash.type) }
-            : {}),
-        } as CSSProperties
+        // The hit colour now lives on the effect layer itself (HitEffect sets
+        // --fx), so the row no longer carries a --flash var for it.
+        { ...(hue ? { '--identity': hue } : {}) } as CSSProperties
       }
       onClick={onSelect}
       onDoubleClick={(e) => {
@@ -139,13 +139,9 @@ export function CombatantRow({
         if (!sharedScreen) onOpenStatBlock();
       }}
     >
-      {flash && (
-        <span
-          key={flash.n}
-          className="row-flash-light"
-          aria-hidden
-        />
-      )}
+      {/* Keyed on the hit sequence so a second hit replays rather than being
+          swallowed by the animation still running from the first. */}
+      {flash && <HitEffect key={flash.n} type={flash.type} />}
       <div className="relative z-[2] flex items-start gap-2.5">
         {!sharedScreen && (
           <input
@@ -426,14 +422,10 @@ export function CombatantRow({
               onClick={(e) => e.stopPropagation()}
             >
               <span className="section-title">Death</span>
-              <span className="font-mono-stats text-xs tabular-nums text-heal">
-                {'●'.repeat(combatant.deathSaves.successes)}
-                {'○'.repeat(3 - combatant.deathSaves.successes)}
-              </span>
-              <span className="font-mono-stats text-xs tabular-nums text-damage">
-                {'●'.repeat(combatant.deathSaves.failures)}
-                {'○'.repeat(3 - combatant.deathSaves.failures)}
-              </span>
+              <DeathSavePips
+                successes={combatant.deathSaves.successes}
+                failures={combatant.deathSaves.failures}
+              />
               <button type="button" className="btn btn-sm btn-ghost" onClick={onDeathSave}>
                 Roll death save
               </button>

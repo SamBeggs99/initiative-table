@@ -18,7 +18,7 @@ export type PartySheetPatch = Partial<
     | 'passiveInvestigation'
     | 'notes'
     | 'importedFrom'
-    | 'portraitDataUrl'
+    | 'portraitId'
   >
 > & {
   /** Replace slot maxima only; used counts preserved unless omitted level. */
@@ -236,8 +236,10 @@ export function applySheetPatch(member: PartyMember, patch: PartySheetPatch): Pa
   }
   if (patch.notes !== undefined) next.notes = patch.notes;
   if (patch.importedFrom !== undefined) next.importedFrom = patch.importedFrom;
-  if (patch.portraitDataUrl !== undefined) {
-    next.portraitDataUrl = patch.portraitDataUrl || undefined;
+  if (patch.portraitId !== undefined) {
+    next.portraitId = patch.portraitId || undefined;
+    // A migrated sheet must never carry both.
+    next.portraitDataUrl = undefined;
   }
 
   if (patch.spellSlotMaxima) {

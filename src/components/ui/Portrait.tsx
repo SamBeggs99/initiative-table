@@ -1,18 +1,25 @@
 import { useRef, useState } from 'react';
-import { readPortraitFile } from '../../lib/portrait';
+import { readPortraitBlob } from '../../lib/portrait';
+import { putPortrait } from '../../lib/portrait-store';
+import { usePortraitUrl } from './usePortraitUrl';
 
 export function PortraitThumb({
   src,
+  portraitId,
   alt,
   size = 'sm',
   className = '',
 }: {
+  /** Legacy data URL. Used only when there is no `portraitId`. */
   src?: string | null;
+  /** Id in the portrait store — the current way portraits are referenced. */
+  portraitId?: string;
   alt: string;
   size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  if (!src) return null;
+  const url = usePortraitUrl(portraitId, src);
+  if (!url) return null;
   const dim =
     size === 'xs'
       ? 'h-6 w-6'
@@ -23,7 +30,7 @@ export function PortraitThumb({
           : 'h-16 w-16';
   return (
     <img
-      src={src}
+      src={url}
       alt={alt}
       className={`portrait-thumb ${dim} ${className}`}
       draggable={false}
@@ -33,34 +40,45 @@ export function PortraitThumb({
 
 /**
  * Compact upload / clear control for creature, PC, and NPC portraits.
- * Calls `onChange` with a resized data URL, or `undefined` when cleared.
+ *
+ * Writes the image into the portrait store and calls `onChange` with its id,
+ * so the sheet carries a ~40-character string instead of ~160 kB of base64.
  */
 export function PortraitField({
   value,
+  portraitId,
   onChange,
   label = 'Portrait',
   size = 'md',
 }: {
+  /** Legacy data URL on an un-migrated record; shown when there is no id. */
   value?: string;
-  onChange: (next: string | undefined) => void;
+  portraitId?: string;
+  onChange: (nextId: string | undefined) => void;
   label?: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const url = usePortraitUrl(portraitId, value);
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setBusy(true);
     setError(null);
-    const result = await readPortraitFile(file);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await readPortraitBlob(file);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onChange(await putPortrait(result.blob));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save portrait.');
+    } finally {
+      setBusy(false);
     }
-    onChange(result.dataUrl);
   };
 
   return (
@@ -72,9 +90,9 @@ export function PortraitField({
             size === 'sm' ? 'h-12 w-12' : size === 'lg' ? 'h-20 w-20' : 'h-16 w-16'
           }`}
         >
-          {value ? (
+          {url ? (
             <img
-              src={value}
+              src={url}
               alt=""
               className="h-full w-full object-cover"
               draggable={false}
@@ -101,9 +119,9 @@ export function PortraitField({
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
-            {busy ? 'Working…' : value ? 'Replace' : 'Upload'}
+            {busy ? 'Working…' : url ? 'Replace' : 'Upload'}
           </button>
-          {value && (
+          {url && (
             <button
               type="button"
               className="btn btn-sm btn-ghost"

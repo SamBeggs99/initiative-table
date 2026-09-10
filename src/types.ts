@@ -128,8 +128,15 @@ export interface StatBlock {
   };
   source: string;
   /**
-   * Optional portrait / token art as a resized data URL (JPEG/WebP).
+   * Portrait / token art, as an id into the portrait store (Dexie blobs).
    * Survives sync for bundled/synced creatures when preserved on write.
+   */
+  portraitId?: string;
+  /**
+   * Legacy inline portrait as a base64 data URL. Read-only now: kept so
+   * records saved before the portrait store still render, and cleared by the
+   * migration in `lib/portrait-migrate.ts`. Never write it.
+   * @deprecated Use `portraitId`.
    */
   portraitDataUrl?: string;
   pf2e?: {
@@ -214,7 +221,14 @@ export interface PartyMember {
    * Not a party pool — each PC tracks their own.
    */
   heroPoints?: number;
-  /** Optional character portrait as a resized data URL. */
+  /** Character portrait, as an id into the portrait store. */
+  portraitId?: string;
+  /**
+   * Legacy inline portrait as a base64 data URL. Read-only now: kept so
+   * records saved before the portrait store still render, and cleared by the
+   * migration in `lib/portrait-migrate.ts`. Never write it.
+   * @deprecated Use `portraitId`.
+   */
   portraitDataUrl?: string;
 }
 
@@ -234,6 +248,14 @@ export interface NpcRecord {
   tags: string[];
   lastSeenSession?: number;
   notes: string;
+  /** NPC portrait, as an id into the portrait store. */
+  portraitId?: string;
+  /**
+   * Legacy inline portrait as a base64 data URL. Read-only now: kept so
+   * records saved before the portrait store still render, and cleared by the
+   * migration in `lib/portrait-migrate.ts`. Never write it.
+   * @deprecated Use `portraitId`.
+   */
   portraitDataUrl?: string;
   writeBackHp?: boolean;
 }

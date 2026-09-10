@@ -90,8 +90,17 @@ export function buildCombatantsFromStatBlock(
         ? opts.hpOverride
         : rollHp(block, opts.hpMode);
 
-    // Deep embed — fight is immune to mid-session sync
+    /*
+     * Deep embed — the fight is immune to mid-session sync.
+     *
+     * The portrait is the one thing that does not get embedded: it is an id
+     * into the portrait store, so it resolves to the same bytes either way,
+     * and copying it per combatant meant a pack of eight carried eight
+     * references (and, before the store existed, eight base64 copies) of one
+     * image into localStorage. Any legacy inline data URL is dropped here too.
+     */
     const embedded: StatBlock = structuredClone(block);
+    embedded.portraitDataUrl = undefined;
 
     combatants.push(
       createCombatant({

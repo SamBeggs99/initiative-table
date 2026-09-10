@@ -10,6 +10,7 @@ import {
   SproutMark,
   VineRule,
 } from './ornament/Botanical';
+import { HitEffectGallery } from './HitEffectGallery';
 
 export function DevGallery({ onBack }: { onBack: () => void }) {
   return (
@@ -197,6 +198,8 @@ export function DevGallery({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </section>
+
+        <HitEffectGallery />
 
         <p className="text-[11px] text-muted">
           Bookmark <code className="font-mono-stats">#/dev/gallery</code> while

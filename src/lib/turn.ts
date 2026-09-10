@@ -23,6 +23,66 @@ function applyTurnStart(
 }
 
 /**
+ * Should the turn order stop on this combatant?
+ *
+ * A slain enemy is out of the fight, and stopping on it every round is pure
+ * friction — the DM presses Next, reads a name that cannot act, presses Next
+ * again. It stays on the tape (the DM may still want its stat block, its loot,
+ * or to heal it back up) but the clock walks past it.
+ *
+ * A downed PC is the opposite case: at 0 HP they are dying, not gone, and their
+ * turn is exactly when death saves happen. Never skip them.
+ *
+ * Lair actions have no HP to lose and always act.
+ */
+export function isSkippableTurn(c: Combatant): boolean {
+  if (c.kind === 'pc') return false;
+  if (c.kind === 'lair') return false;
+  return c.hp <= 0;
+}
+
+/**
+ * The next index the clock should land on, walking past slain enemies.
+ *
+ * Falls back to the plain next slot when everything ahead is skippable, so a
+ * tape of nothing but corpses still advances by one rather than looping
+ * forever. `wrapped` reports whether the walk crossed the end of the list,
+ * because that is what bumps the round.
+ */
+export function nextActiveIndex(
+  combatants: Combatant[],
+  from: number,
+): { index: number; wrapped: boolean; skipped: Combatant[] } {
+  const n = combatants.length;
+  if (n === 0) return { index: 0, wrapped: false, skipped: [] };
+
+  const skipped: Combatant[] = [];
+  let wrapped = false;
+  let index = from + 1;
+  if (index >= n) {
+    index = 0;
+    wrapped = true;
+  }
+
+  // At most one lap, so an all-dead tape cannot spin.
+  for (let step = 0; step < n; step += 1) {
+    const candidate = combatants[index]!;
+    if (!isSkippableTurn(candidate)) {
+      return { index, wrapped, skipped };
+    }
+    skipped.push(candidate);
+    index += 1;
+    if (index >= n) {
+      index = 0;
+      wrapped = true;
+    }
+  }
+
+  const plain = from + 1 >= n ? 0 : from + 1;
+  return { index: plain, wrapped: from + 1 >= n, skipped: [] };
+}
+
+/**
  * Advance initiative: end current turn (condition expiry + valued ticks),
  * maybe bump round (round-based expiry), start next (reset resources + recharge rolls).
  */
@@ -59,10 +119,16 @@ export function advanceCombatTurn(
     }
   }
 
-  let turnIndex = combat.turnIndex + 1;
+  const step = nextActiveIndex(combatants, combat.turnIndex);
+  const turnIndex = step.index;
   let round = combat.round;
-  if (turnIndex >= combatants.length) {
-    turnIndex = 0;
+  for (const dead of step.skipped) {
+    logs.push({
+      message: `${dead.name} is down — turn skipped`,
+      kind: 'system',
+    });
+  }
+  if (step.wrapped) {
     round += 1;
     combatants = combatants.map((c) => {
       const { conditions, expired } = expireConditionsForRound(c, round);

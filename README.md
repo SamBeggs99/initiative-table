@@ -244,8 +244,9 @@ static import of a catalog shows up in the build output.
 - **Attack rolls** — clicking an action chip rolls `d20 + attack bonus` against each
   selected target’s AC, marks hit / miss / crit, and applies damage only to the
   ones that landed. 5e crits double the dice and not the modifier; PF2e uses degrees of
-  success (AC+10, nat 20 / nat 1 shift one step) and doubles the total. The `− = +`
-  toggle in the header rolls those attacks with disadvantage, straight, or advantage.
+  success (AC+10, nat 20 / nat 1 shift one step) and doubles the total. The **Adv** and **Dis**
+  toggles in the header roll those attacks twice and take the higher or lower;
+  neither pressed is a straight roll.
   An action with no printed attack bonus (a save-based AoE) still applies to everyone
   selected, as before.
 - **Action damage** — set amount (`2d6+3`, `1d8+2d8+4`, or flat) and type on Actions /

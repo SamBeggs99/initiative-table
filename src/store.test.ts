@@ -269,3 +269,76 @@ describe('emptyCombatState', () => {
     expect(s.combatants).toHaveLength(0);
   });
 });
+
+describe('the clock walks past the dead', () => {
+  it('skips a slain enemy but stops on a downed PC', () => {
+    seatCampaign();
+    const pcId = useStore.getState().createBlankPartyMember('Vera');
+    useStore.getState().syncPartyToTape();
+
+    // The ogre stays up, so it is the proof the clock still stops on the living.
+    addMonster('Ogre', 20);
+    const goblin = addMonster('Goblin', 7);
+    useStore.getState().startCombat();
+
+    // Drop the goblin and the hero.
+    useStore.getState().applyDamage(goblin, 99);
+    const pcRow = combat().combatants.find((c) => c.sourcePartyMemberId === pcId)!;
+    useStore.getState().applyDamage(pcRow.id, 999);
+
+    expect(byName('Goblin')!.hp).toBe(0);
+    expect(combat().combatants.find((c) => c.id === pcRow.id)!.hp).toBe(0);
+
+    // Walk a full lap and record who the clock stopped on.
+    const visited: string[] = [];
+    for (let i = 0; i < combat().combatants.length * 2; i++) {
+      useStore.getState().nextTurn();
+      visited.push(combat().combatants[combat().turnIndex]!.name);
+    }
+
+    // The corpse never gets a turn...
+    expect(visited).not.toContain('Goblin');
+    // ...but the dying hero does, because that is when death saves happen.
+    expect(visited).toContain('Vera');
+    expect(visited).toContain('Ogre');
+  });
+
+  it('still advances when the whole tape is down', () => {
+    seatCampaign();
+    const a = addMonster('Goblin A', 7);
+    const bId = addMonster('Goblin B', 7);
+    useStore.getState().startCombat();
+    useStore.getState().applyDamage(a, 99);
+    useStore.getState().applyDamage(bId, 99);
+
+    // The loop guard: without it this spins forever rather than returning.
+    const before = combat().turnIndex;
+    useStore.getState().nextTurn();
+    expect(combat().turnIndex).not.toBe(before);
+    expect(combat().round).toBeGreaterThanOrEqual(1);
+  });
+
+  it('brings a healed enemy back into the order', () => {
+    seatCampaign();
+    useStore.getState().createBlankPartyMember('Vera');
+    useStore.getState().syncPartyToTape();
+    const ogreId = addMonster('Ogre', 20);
+    useStore.getState().startCombat();
+
+    useStore.getState().applyDamage(ogreId, 99);
+    let visited: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      useStore.getState().nextTurn();
+      visited.push(combat().combatants[combat().turnIndex]!.name);
+    }
+    expect(visited).not.toContain('Ogre');
+
+    useStore.getState().applyHealing(ogreId, 10);
+    visited = [];
+    for (let i = 0; i < 4; i++) {
+      useStore.getState().nextTurn();
+      visited.push(combat().combatants[combat().turnIndex]!.name);
+    }
+    expect(visited).toContain('Ogre');
+  });
+});

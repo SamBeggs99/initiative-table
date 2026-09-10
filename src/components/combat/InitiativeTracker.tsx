@@ -57,8 +57,9 @@ const ATTACK_HELP: { keys: string; action: string }[] = [
       'Rolls to hit against each selected target’s AC, then applies damage to the hits only',
   },
   {
-    keys: '− = +',
-    action: 'Header toggle: roll those attacks with disadvantage, straight, or advantage',
+    keys: 'Adv / Dis',
+    action:
+      'Header toggles: roll twice and take the higher or lower. Neither on = a straight roll',
   },
   {
     keys: 'No +N on the chip',
@@ -71,9 +72,16 @@ const ATTACK_HELP: { keys: string; action: string }[] = [
 ];
 
 /**
- * Sets how the next action-chip attack rolls. Sticky rather than one-shot: a
- * DM whose whole party is prone wants advantage to stay on for the round, and
- * the header is where they can see that it is.
+ * How the next action-chip attack rolls.
+ *
+ * Two labelled toggles rather than a three-way `− = +`, which was unreadable
+ * without a tooltip. It also models what a DM actually thinks: nobody decides
+ * to "set roll mode to straight" — they decide *this attack has advantage*, and
+ * a normal roll is simply neither being on. So "off" is the pair unpressed, and
+ * there is no third button for the default.
+ *
+ * Sticky, not one-shot: a whole party prone means advantage stays on for the
+ * round, and the header is where you can see that it is.
  */
 function AttackModeToggle({
   mode,
@@ -82,31 +90,42 @@ function AttackModeToggle({
   mode: AttackMode;
   onChange: (m: AttackMode) => void;
 }) {
-  const options: { id: AttackMode; label: string; title: string }[] = [
-    { id: 'dis', label: '−', title: 'Roll attacks with disadvantage' },
-    { id: 'flat', label: '=', title: 'Roll attacks straight' },
-    { id: 'adv', label: '+', title: 'Roll attacks with advantage' },
-  ];
+  const toggle = (want: Exclude<AttackMode, 'flat'>) =>
+    onChange(mode === want ? 'flat' : want);
+
   return (
     <div
-      className="flex items-center overflow-hidden rounded-lg border border-border"
-      role="radiogroup"
-      aria-label="Attack roll mode"
-      title="Applies to attacks rolled from an action chip"
+      className="flex items-center gap-1"
+      role="group"
+      aria-label="Attack roll modifier"
     >
-      {options.map((o) => (
+      <span
+        className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted sm:inline"
+        aria-hidden
+      >
+        Roll
+      </span>
+      {(
+        [
+          {
+            id: 'adv' as const,
+            label: 'Adv',
+            title: 'Attacks from an action chip roll twice and take the higher',
+          },
+          {
+            id: 'dis' as const,
+            label: 'Dis',
+            title: 'Attacks from an action chip roll twice and take the lower',
+          },
+        ] satisfies { id: Exclude<AttackMode, 'flat'>; label: string; title: string }[]
+      ).map((o) => (
         <button
           key={o.id}
           type="button"
-          role="radio"
-          aria-checked={mode === o.id}
+          aria-pressed={mode === o.id}
           title={o.title}
-          className={`px-2 py-1 font-mono-stats text-xs leading-4 transition-colors ${
-            mode === o.id
-              ? 'bg-accent/18 text-accent'
-              : 'text-muted hover:text-text'
-          }`}
-          onClick={() => onChange(o.id)}
+          className={`btn btn-sm ${mode === o.id ? 'btn-on' : 'btn-ghost'}`}
+          onClick={() => toggle(o.id)}
         >
           {o.label}
         </button>
@@ -271,22 +290,53 @@ export function InitiativeTracker({
   }, [moreOpen]);
 
   const flashSeq = useRef(0);
-  const pulseRow = useCallback((id: string, type?: string) => {
-    const n = ++flashSeq.current;
-    setFlashes((prev) => {
-      const next = new Map(prev);
-      next.set(id, { type, n });
-      return next;
-    });
-    window.setTimeout(() => {
-      setFlashes((cur) => {
-        if (cur.get(id)?.n !== n) return cur;
-        const copy = new Map(cur);
-        copy.delete(id);
-        return copy;
+  const pulseRow = useCallback(
+    (id: string, type?: string, holdMs = 560) => {
+      const n = ++flashSeq.current;
+      setFlashes((prev) => {
+        const next = new Map(prev);
+        next.set(id, { type, n });
+        return next;
       });
-    }, 560);
-  }, []);
+      window.setTimeout(() => {
+        setFlashes((cur) => {
+          if (cur.get(id)?.n !== n) return cur;
+          const copy = new Map(cur);
+          copy.delete(id);
+          return copy;
+        });
+      }, holdMs);
+    },
+    [],
+  );
+
+  /*
+   * Announce the moment a combatant crosses to 0, separately from whatever hit
+   * did it. Driven off observed HP rather than from inside the damage handlers
+   * because there are many routes to zero — a typed field, an AoE, an action
+   * chip, a bulk save, a death save, an undo — and every one of them should
+   * produce the same beat.
+   */
+  const prevHp = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const seen = new Map<string, number>();
+    for (const c of combat.combatants) {
+      seen.set(c.id, c.hp);
+      const before = prevHp.current.get(c.id);
+      // Only on the crossing, and never on first sight of a row (a corpse
+      // loaded from a saved fight should not re-announce its own death).
+      if (before == null || before <= 0 || c.hp > 0) continue;
+      if (c.kind === 'lair') continue;
+      if (c.kind === 'pc') {
+        pulseRow(c.id, 'downed', 900);
+        pushLog(`${c.name} is down — death saves begin`, 'damage');
+      } else {
+        pulseRow(c.id, 'slain', 980);
+        pushLog(`${c.name} is down`, 'system');
+      }
+    }
+    prevHp.current = seen;
+  }, [combat.combatants, pulseRow, pushLog]);
 
   const flashDamage = (id: string, n: number, type?: string) => {
     applyDamage(id, n, type ? { type } : undefined);

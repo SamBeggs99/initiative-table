@@ -436,7 +436,8 @@ export function CreatureEditor({
               </label>
               <PortraitField
                 value={draft.portraitDataUrl}
-                onChange={(portraitDataUrl) => patch({ portraitDataUrl })}
+                portraitId={draft.portraitId}
+                onChange={(portraitId) => patch({ portraitId })}
               />
               <div className="grid grid-cols-3 gap-2">
                 <label className="block text-xs text-muted">

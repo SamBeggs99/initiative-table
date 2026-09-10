@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   applyResistance,
   concentrationDC,
@@ -81,10 +81,30 @@ import {
   stripAwardedLoot,
 } from './lib/loot';
 import { encounterFromCombat } from './lib/encounter-library';
+import { requestCloudFlush } from './lib/cloud/dirty';
+import { schedulePortraitGc } from './lib/portrait-gc';
 import {
   exportCampaignPayload,
   parseCampaignImport,
 } from './lib/campaign-io';
+
+/**
+ * First-run theme follows the room, not a hard-coded preference. The app is
+ * "built for dim light, one hand free, mid-sentence at the table", and the old
+ * default was a cream #f7f3ea page — which costs the DM their dark adaptation
+ * every time they glance down, and the players' too if a lid faces them. The
+ * day theme is still the better one for prep in daylight, which is an argument
+ * for an easy toggle rather than for defaulting bright at the table.
+ *
+ * `index.html` runs the same decision inline before first paint, so a night
+ * user no longer gets a full-brightness flash on load.
+ */
+function preferredTheme(): Settings['theme'] {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'night';
+  return window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'day'
+    : 'night';
+}
 
 const defaultSettings: Settings = {
   hpRollMode: 'average',
@@ -92,7 +112,7 @@ const defaultSettings: Settings = {
   hideHpByDefault: false,
   sharedScreen: false,
   density: 'comfortable',
-  theme: 'day',
+  theme: preferredTheme(),
   onboardingComplete: false,
 };
 
@@ -240,6 +260,41 @@ export type PersistSlice = {
   settings: Settings;
 };
 
+/**
+ * Local-only sync bookkeeping. Never uploaded — a device that pulls the cloud
+ * copy must not inherit another device's "has unsaved work" marker.
+ */
+export interface CloudMeta {
+  /**
+   * When the first un-pushed change landed, or null when local matches cloud.
+   * Only the null -> timestamp transition writes, so this costs one extra
+   * localStorage write per sync cycle, not one per keystroke.
+   */
+  dirtySince: number | null;
+  /** `updated_at` of the cloud row as of our last successful push or pull. */
+  lastSyncedAt: string | null;
+}
+
+export const EMPTY_CLOUD_META: CloudMeta = Object.freeze({
+  dirtySince: null,
+  lastSyncedAt: null,
+}) as CloudMeta;
+
+/**
+ * True when a state transition touched anything that belongs in the cloud copy.
+ * Deliberately excludes `cloudMeta` so marking the store dirty cannot re-trigger
+ * itself, and excludes log / toasts / undo so narration does not cause a push.
+ */
+export function persistChanged(a: PersistSlice, b: PersistSlice): boolean {
+  return (
+    a.campaigns !== b.campaigns ||
+    a.activeCampaignId !== b.activeCampaignId ||
+    a.encounters !== b.encounters ||
+    a.combatByCampaign !== b.combatByCampaign ||
+    a.settings !== b.settings
+  );
+}
+
 export function getPersistSlice(state: PersistSlice): PersistSlice {
   return {
     campaigns: state.campaigns,
@@ -249,6 +304,67 @@ export function getPersistSlice(state: PersistSlice): PersistSlice {
     settings: state.settings,
   };
 }
+
+/**
+ * localStorage is a hard ~5 MB wall and `setItem` throws when you hit it.
+ * Zustand's default storage swallows that, which means autosave stops without
+ * telling anyone — the exact failure this app is not allowed to have. Surface it
+ * loudly instead, and only once per session so it cannot spam the table.
+ */
+let quotaWarned = false;
+
+export function resetQuotaWarning(): void {
+  quotaWarned = false;
+}
+
+export function isQuotaError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.name === 'QuotaExceededError' ||
+    err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    /quota/i.test(err.message)
+  );
+}
+
+const guardedStorage = createJSONStorage(() => ({
+  getItem: (key: string) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      // Private mode / blocked site data — run in memory rather than dying.
+      return null;
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+      if (quotaWarned) {
+        quotaWarned = false;
+        setTimeout(() => useStore.setState({ storageBlocked: null }), 0);
+      }
+    } catch (err) {
+      if (!quotaWarned) {
+        quotaWarned = true;
+        const reason = isQuotaError(err) ? 'full' : 'blocked';
+        /*
+         * Deferred, and deliberately not rethrown. Zustand's persist propagates
+         * a storage error straight out of `setState`, so once the quota is hit
+         * every single mutation throws into its caller and the app stops
+         * working — a far worse failure than a stale disk copy. Keep running in
+         * memory and say so, loudly and persistently, so the DM can export.
+         */
+        setTimeout(() => useStore.setState({ storageBlocked: reason }), 0);
+      }
+    }
+  },
+  removeItem: (key: string) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* nothing useful to do */
+    }
+  },
+}));
 
 export function mergePersistedState(
   persisted: unknown,
@@ -301,6 +417,8 @@ export function mergePersistedState(
     combatByCampaign,
     settings: { ...defaultSettings, ...p.settings },
     undoStack: Array.isArray(migratedStack) ? migratedStack : [],
+    cloudMeta: { ...EMPTY_CLOUD_META, ...p.cloudMeta },
+    log: Array.isArray(p.log) ? p.log.slice(-200) : [],
   };
 }
 
@@ -317,6 +435,14 @@ export interface AppState {
   /** Ephemeral — Start combat collects scores before sorting the tape. */
   initiativePromptOpen: boolean;
   toasts: { id: string; message: string; at: number }[];
+  /** Local sync bookkeeping. Persisted locally, never uploaded. */
+  cloudMeta: CloudMeta;
+  /**
+   * Non-null when localStorage is refusing writes, so the UI can say the table
+   * is memory-only. 'full' = out of quota, 'blocked' = private mode / site data
+   * blocked.
+   */
+  storageBlocked: 'full' | 'blocked' | null;
 
   getActiveCombat: () => CombatState;
   getActiveCampaign: () => Campaign | null;
@@ -439,6 +565,14 @@ export interface AppState {
   levelUpPartyMember: (id: string, input: LevelUpInput) => void;
   addPartyMemberToCombat: (id: string) => void;
   addWholePartyToCombat: () => void;
+
+  /**
+   * Mark local state as matching the cloud row stamped `remoteUpdatedAt`.
+   * Pass the edit sequence captured when the payload was built: if another edit
+   * landed mid-upload the device stays dirty, so the already-scheduled follow-up
+   * push is what clears it.
+   */
+  markCloudSynced: (remoteUpdatedAt: string | null, pushedSeq?: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -454,6 +588,18 @@ export const useStore = create<AppState>()(
       concentrationPrompt: null,
       initiativePromptOpen: false,
       toasts: [],
+      cloudMeta: EMPTY_CLOUD_META,
+      storageBlocked: null,
+
+      markCloudSynced: (remoteUpdatedAt, pushedSeq) => {
+        const stale = pushedSeq != null && pushedSeq !== currentEditSeq();
+        set((s) => ({
+          cloudMeta: {
+            dirtySince: stale ? (s.cloudMeta.dirtySince ?? Date.now()) : null,
+            lastSyncedAt: remoteUpdatedAt,
+          },
+        }));
+      },
 
       getActiveCombat: () => {
         const { activeCampaignId, combatByCampaign } = get();
@@ -550,6 +696,7 @@ export const useStore = create<AppState>()(
         if (wasActive && get().activeCampaignId) {
           get().syncPartyToTape();
         }
+        schedulePortraitGc();
       },
 
       setActiveCampaign: (id) => {
@@ -618,6 +765,7 @@ export const useStore = create<AppState>()(
         if (!opts?.silent) {
           get().pushLog('Encounter cleared (party stays on the tracker)', 'system');
         }
+        requestCloudFlush();
       },
 
       endSession: () => {
@@ -685,6 +833,7 @@ export const useStore = create<AppState>()(
           concentrationPrompt: null,
         }));
         get().pushLog(`Session ${session} ended → session ${session + 1}`, 'system');
+        requestCloudFlush();
       },
 
       loadEncounter: async (encounter, opts) => {
@@ -1353,6 +1502,7 @@ export const useStore = create<AppState>()(
           concentrationPrompt: null,
         }));
         get().pushLog('Combat ended', 'system');
+        requestCloudFlush();
       },
 
       awardLoot: (id) => {
@@ -1650,6 +1800,7 @@ export const useStore = create<AppState>()(
         }));
         for (const c of linked) get().removeCombatant(c.id);
         get().pushLog('Deleted NPC', 'system');
+        schedulePortraitGc();
       },
 
       createNpcFromStatBlock: (block, name) => {
@@ -1736,6 +1887,7 @@ export const useStore = create<AppState>()(
         }));
         for (const c of linked) get().removeCombatant(c.id);
         get().pushLog('Removed party member', 'system');
+        schedulePortraitGc();
       },
 
       upsertSessionNote: (note) => {
@@ -1918,6 +2070,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'initiative-table',
+      storage: guardedStorage,
       partialize: (state) => ({
         campaigns: state.campaigns,
         activeCampaignId: state.activeCampaignId,
@@ -1925,26 +2078,125 @@ export const useStore = create<AppState>()(
         combatByCampaign: state.combatByCampaign,
         settings: state.settings,
         undoStack: state.undoStack,
+        cloudMeta: state.cloudMeta,
+        /*
+         * The session log survives a reload now. It is the DM's record of the
+         * fight so far, and losing it to a tab eviction also lost any line
+         * they had not yet promoted into Notes. Capped at 200 entries by
+         * pushLog, and excluded from the cloud payload — it is per-device
+         * narration, not campaign data.
+         */
+        log: state.log,
       }),
       merge: (persisted, current) => mergePersistedState(persisted, current),
     },
   ),
 );
 
-export function applyPersistSlice(slice: PersistSlice): void {
-  const merged = mergePersistedState(slice, useStore.getState());
+/**
+ * Set while a cloud pull is replacing local state, so hydrating does not itself
+ * count as a local edit.
+ */
+let suppressDirtyMark = false;
+
+/**
+ * In-memory edit counter. `dirtySince` only records the *first* change since a
+ * sync, so it cannot tell a push that another edit landed while the upload was
+ * in flight. This can — and it costs no storage write, because it only has to
+ * be valid within one session (across reloads `dirtySince` carries the flag).
+ */
+let localEditSeq = 0;
+
+export function currentEditSeq(): number {
+  return localEditSeq;
+}
+
+/**
+ * Stamp the first change since the last cloud sync. Runs regardless of whether
+ * Supabase is configured, so a DM who works offline for a week and then signs in
+ * still has a truthful "this device has unsaved work" marker to conflict on.
+ */
+useStore.subscribe((state, prev) => {
+  if (suppressDirtyMark) return;
+  if (!persistChanged(state, prev)) return;
+  localEditSeq += 1;
+  if (state.cloudMeta.dirtySince != null) return;
   useStore.setState({
-    campaigns: merged.campaigns,
-    activeCampaignId: merged.activeCampaignId,
-    encounters: merged.encounters,
-    combatByCampaign: merged.combatByCampaign,
-    settings: merged.settings,
-    undoStack: [],
-    log: [],
-    toasts: [],
-    concentrationPrompt: null,
-    initiativePromptOpen: false,
+    cloudMeta: { ...state.cloudMeta, dirtySince: Date.now() },
   });
+});
+
+/**
+ * Replace local state with a slice pulled from the cloud. `remoteUpdatedAt`
+ * becomes the new sync baseline, so the very next mutation is what marks this
+ * device dirty again — not the act of hydrating.
+ */
+export function applyPersistSlice(
+  slice: PersistSlice,
+  remoteUpdatedAt: string | null = null,
+): void {
+  const merged = mergePersistedState(slice, useStore.getState());
+  suppressDirtyMark = true;
+  try {
+    useStore.setState({
+      campaigns: merged.campaigns,
+      activeCampaignId: merged.activeCampaignId,
+      encounters: merged.encounters,
+      combatByCampaign: merged.combatByCampaign,
+      settings: merged.settings,
+      undoStack: [],
+      log: [],
+      toasts: [],
+      concentrationPrompt: null,
+      initiativePromptOpen: false,
+      cloudMeta: { dirtySince: null, lastSyncedAt: remoteUpdatedAt },
+    });
+  } finally {
+    suppressDirtyMark = false;
+  }
+}
+
+/**
+ * Wipe this device back to a signed-out blank. Called by sign-out, after the
+ * final push has landed.
+ *
+ * Campaigns belong to the account and signing in anywhere restores them, so a
+ * signed-out device should not keep a copy it cannot reach through the UI. Only
+ * the user's own data goes: the SRD catalogs stay, because they are a
+ * per-device download that the next sign-in would otherwise have to re-fetch.
+ */
+export async function clearDeviceData(): Promise<void> {
+  suppressDirtyMark = true;
+  try {
+    useStore.setState({
+      campaigns: [],
+      activeCampaignId: null,
+      encounters: [],
+      combatByCampaign: {},
+      log: [],
+      undoStack: [],
+      toasts: [],
+      concentrationPrompt: null,
+      initiativePromptOpen: false,
+      cloudMeta: { dirtySince: null, lastSyncedAt: null },
+      storageBlocked: null,
+      // Keep display preferences — theme and density are about this screen and
+      // this room, not about whose account is signed in.
+      settings: { ...useStore.getState().settings, sharedScreen: false },
+    });
+  } finally {
+    suppressDirtyMark = false;
+  }
+  resetQuotaWarning();
+  try {
+    localStorage.removeItem('initiative-table');
+  } catch {
+    /* nothing useful to do */
+  }
+  // Homebrew and portraits live in Dexie and are also account data. Imported
+  // lazily so the store does not pull Dexie into its own module graph.
+  const { clearUserOwnedTables } = await import('./lib/local-data');
+  await clearUserOwnedTables();
 }
 
 export function waitForPersistHydration(): Promise<void> {

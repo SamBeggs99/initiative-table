@@ -8,46 +8,75 @@ describe('dataUrlByteLength', () => {
   });
 });
 
+/**
+ * The resolver returns a *reference* now rather than a URL, so the caller can
+ * look the bytes up in the portrait store. These assert the precedence, which
+ * is unchanged: live sheet before embedded stat block.
+ */
 describe('resolveCombatantPortrait', () => {
   const campaign = {
-    party: [{ id: 'pc1', portraitDataUrl: 'data:pc' }],
+    party: [{ id: 'pc1', portraitId: 'sha256-pc' }],
     npcs: [
       {
         id: 'n1',
-        portraitDataUrl: 'data:npc',
-        statBlock: { portraitDataUrl: 'data:block-npc' },
+        portraitId: 'sha256-npc',
+        statBlock: { portraitId: 'sha256-block-npc' },
       },
       {
         id: 'n2',
-        statBlock: { portraitDataUrl: 'data:block-only' },
+        statBlock: { portraitId: 'sha256-block-only' },
+      },
+      // Not yet migrated: still carries an inline data URL.
+      {
+        id: 'n3',
+        portraitDataUrl: 'data:legacy-npc',
       },
     ],
   };
 
-  it('prefers party portrait for PCs', () => {
+  it('prefers the party sheet for PCs', () => {
     expect(
-      resolveCombatantPortrait({ sourcePartyMemberId: 'pc1' }, campaign),
-    ).toBe('data:pc');
+      resolveCombatantPortrait({ sourcePartyMemberId: 'pc1' }, campaign)
+        ?.portraitId,
+    ).toBe('sha256-pc');
   });
 
-  it('prefers NPC record portrait over embedded block', () => {
+  it('prefers the NPC record over its embedded block', () => {
     expect(
-      resolveCombatantPortrait({ sourceNpcId: 'n1' }, campaign),
-    ).toBe('data:npc');
+      resolveCombatantPortrait({ sourceNpcId: 'n1' }, campaign)?.portraitId,
+    ).toBe('sha256-npc');
   });
 
-  it('falls back to NPC embedded block portrait', () => {
+  it('falls back to the NPC embedded block', () => {
     expect(
-      resolveCombatantPortrait({ sourceNpcId: 'n2' }, campaign),
-    ).toBe('data:block-only');
+      resolveCombatantPortrait({ sourceNpcId: 'n2' }, campaign)?.portraitId,
+    ).toBe('sha256-block-only');
   });
 
-  it('uses combatant stat block for monsters', () => {
+  it('uses the combatant stat block for monsters', () => {
     expect(
       resolveCombatantPortrait(
-        { statBlock: { portraitDataUrl: 'data:monster' } },
+        { statBlock: { portraitId: 'sha256-monster' } },
         campaign,
-      ),
-    ).toBe('data:monster');
+      )?.portraitId,
+    ).toBe('sha256-monster');
+  });
+
+  it('still resolves an un-migrated inline portrait', () => {
+    const ref = resolveCombatantPortrait({ sourceNpcId: 'n3' }, campaign);
+    expect(ref?.portraitId).toBeUndefined();
+    expect(ref?.portraitDataUrl).toBe('data:legacy-npc');
+  });
+
+  it('returns nothing when no portrait is set anywhere', () => {
+    expect(resolveCombatantPortrait({ sourceNpcId: 'missing' }, campaign)).toBeUndefined();
+    expect(resolveCombatantPortrait({}, campaign)).toBeUndefined();
+    expect(resolveCombatantPortrait({}, null)).toBeUndefined();
+  });
+
+  it('does not treat an empty record as a portrait', () => {
+    expect(
+      resolveCombatantPortrait({ statBlock: {} }, campaign),
+    ).toBeUndefined();
   });
 });

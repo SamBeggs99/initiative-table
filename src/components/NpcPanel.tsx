@@ -1,4 +1,9 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { lazy, useMemo, useState, type CSSProperties } from 'react';
+const CreatureEditor = lazy(() =>
+  import('./statblock/CreatureEditor').then((m) => ({
+    default: m.CreatureEditor,
+  })),
+);
 import { hueHex, npcHueId } from '../lib/identity';
 import {
   blankCharacterNpc,
@@ -13,7 +18,7 @@ import { blankStatBlock } from '../lib/statblock-derived';
 import { useStore } from '../store';
 import type { NpcRecord, StatBlock, System } from '../types';
 import { ConfirmDialog } from './ui/AskDialog';
-import { CreatureEditor } from './statblock/CreatureEditor';
+import { LazyOverlay } from './ui/LazyOverlay';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
 
 type CreateMode = 'paste' | 'json' | 'manual-character' | 'manual-statted' | null;
@@ -128,12 +133,14 @@ export function NpcQuickEditor({
 
           <PortraitField
             value={draft.portraitDataUrl}
-            onChange={(portraitDataUrl) => {
+            portraitId={draft.portraitId}
+            onChange={(portraitId) => {
               setDraft((d) => ({
                 ...d,
-                portraitDataUrl,
+                portraitId,
+                portraitDataUrl: undefined,
                 statBlock: d.statBlock
-                  ? { ...d.statBlock, portraitDataUrl }
+                  ? { ...d.statBlock, portraitId, portraitDataUrl: undefined }
                   : d.statBlock,
               }));
             }}
@@ -329,26 +336,28 @@ export function NpcQuickEditor({
         </div>
       </div>
       {blockEditor && block && (
-        <CreatureEditor
-          system={block.system ?? system}
-          campaignId={block.campaignId ?? campaignId}
-          mode="edit"
-          initial={block}
-          embedded
-          title={`${draft.name.trim() || 'NPC'} — stat block`}
-          onClose={() => setBlockEditor(false)}
-          onSaved={(next) =>
-            setDraft((d) => ({
-              ...d,
-              statBlock: next,
-              name: d.name.trim() || next.name,
-              persistentHp: d.persistentHp ?? {
-                current: next.hpAvg,
-                max: next.hpAvg,
-              },
-            }))
-          }
-        />
+        <LazyOverlay>
+          <CreatureEditor
+            system={block.system ?? system}
+            campaignId={block.campaignId ?? campaignId}
+            mode="edit"
+            initial={block}
+            embedded
+            title={`${draft.name.trim() || 'NPC'} — stat block`}
+            onClose={() => setBlockEditor(false)}
+            onSaved={(next) =>
+              setDraft((d) => ({
+                ...d,
+                statBlock: next,
+                name: d.name.trim() || next.name,
+                persistentHp: d.persistentHp ?? {
+                  current: next.hpAvg,
+                  max: next.hpAvg,
+                },
+              }))
+            }
+          />
+        </LazyOverlay>
       )}
     </div>
   );
@@ -548,8 +557,12 @@ export function NpcPanel() {
                     onClick={() => setEditing({ npc })}
                   >
                     <div className="flex items-center gap-2">
-                      {npc.portraitDataUrl || npc.statBlock?.portraitDataUrl ? (
+                      {npc.portraitId ||
+                      npc.portraitDataUrl ||
+                      npc.statBlock?.portraitId ||
+                      npc.statBlock?.portraitDataUrl ? (
                         <PortraitThumb
+                          portraitId={npc.portraitId ?? npc.statBlock?.portraitId}
                           src={npc.portraitDataUrl ?? npc.statBlock?.portraitDataUrl}
                           alt=""
                           size="xs"

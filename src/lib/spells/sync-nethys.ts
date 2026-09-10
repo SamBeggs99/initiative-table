@@ -7,7 +7,6 @@ import {
   uniquifyNethysSpellId,
   type NethysSpell,
 } from './normalize-nethys';
-import nethysSnapshot from '../../data/nethys-player-core-spells.json' with { type: 'json' };
 
 export const NETHYS_SEARCH_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 export const NETHYS_PAGE_SIZE = 100;
@@ -71,10 +70,23 @@ function mapNethysRows(
   return out;
 }
 
-function loadBundledNethysSnapshot(
+/**
+ * Loaded on demand, not bundled. As a static import this 1.3 MB snapshot rode
+ * in the entry chunk via the `lib/spells` barrel, so every visitor — including
+ * a 5e-only DM who will never touch it — downloaded and parsed the whole
+ * Pathfinder Player Core spell list before first paint. Same treatment as the
+ * Monster Core snapshot, which was already dynamic.
+ */
+async function loadBundledNethysSnapshot(
   onProgress?: (p: SpellSyncProgress) => void,
-): Spell[] {
-  const rows = (nethysSnapshot as NethysSnapshotRow[]).map((row) => ({
+): Promise<Spell[]> {
+  const mod = await import('../../data/nethys-player-core-spells.json');
+  const loaded = (mod as { default?: unknown }).default ?? mod;
+  const raw = Array.isArray(loaded) ? (loaded as NethysSnapshotRow[]) : [];
+  if (raw.length === 0) {
+    throw new Error('Player Core spell snapshot is empty');
+  }
+  const rows = raw.map((row) => ({
     _id: row._id || row.id || row.name || 'spell',
     source: row,
   }));

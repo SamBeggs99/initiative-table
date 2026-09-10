@@ -104,6 +104,7 @@ export async function executePaletteIntent(
         system,
         campaignId: campaign.id,
         query: intent.query,
+        limit: 1,
       });
       const top = hits[0]?.creature;
       if (!top) {

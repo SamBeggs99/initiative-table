@@ -1,0 +1,31 @@
+{
+  "name": "Dungeon Master MultiTool",
+  "short_name": "DM MultiTool",
+  "description": "A D&D 5e and Pathfinder 2e combat manager and campaign multi-tool for DMs running games live at the table.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#121612",
+  "theme_color": "#121612",
+  "categories": ["games", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

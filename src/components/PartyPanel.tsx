@@ -356,8 +356,8 @@ function SheetForm({
 
           <PortraitField
             value={draft.portraitDataUrl}
-            onChange={(portraitDataUrl) =>
-              setSheet({ portraitDataUrl: portraitDataUrl ?? '' })
+            portraitId={draft.portraitId}
+            onChange={(portraitId) => setSheet({ portraitId })
             }
           />
 
@@ -726,10 +726,15 @@ function MemberDetail({
     >
       <div className="mb-1 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2">
-          <PortraitThumb src={member.portraitDataUrl} alt="" size="md" />
+          <PortraitThumb
+            portraitId={member.portraitId}
+            src={member.portraitDataUrl}
+            alt=""
+            size="md"
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              {!member.portraitDataUrl && (
+              {!member.portraitId && !member.portraitDataUrl && (
                 <span className="identity-dot" aria-hidden />
               )}
               <span className="name-identity text-sm font-semibold">
@@ -954,8 +959,13 @@ export function PartyPanel() {
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       onClick={() => setSelectedId(p.id)}
                     >
-                      {p.portraitDataUrl ? (
-                        <PortraitThumb src={p.portraitDataUrl} alt="" size="xs" />
+                      {p.portraitId || p.portraitDataUrl ? (
+                        <PortraitThumb
+                          portraitId={p.portraitId}
+                          src={p.portraitDataUrl}
+                          alt=""
+                          size="xs"
+                        />
                       ) : (
                         <span
                           className="identity-dot"

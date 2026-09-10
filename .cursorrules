@@ -1,34 +1,74 @@
-# Project: Initiative Table — a D&D combat manager and campaign multi-tool for a DM
+# Project: Dungeon Master MultiTool — a D&D combat manager and campaign multi-tool for a DM
 # running games live at the table. Primary system is D&D 5e; PF2e is supported per-campaign
-# through a system adapter layer.
+# through a system adapter layer. (The npm package name is still `initiative-table`.)
 
 ## Stack (do not substitute)
 - Vite + React 18 + TypeScript (strict)
 - Tailwind CSS. No component library — hand-roll the UI.
 - Zustand for state, `persist` middleware to localStorage for app state.
-- Dexie (IndexedDB) for the cached bestiary only — it is too large for localStorage.
-- No backend, no auth, no server. Everything client-side, deployable as static files.
-- Vitest for logic tests (dice, stat block parsing, XP math). No component tests.
+- Dexie (IndexedDB) for the cached bestiary, spell catalogs, and portrait blobs —
+  all too large for localStorage.
+- Optional Supabase for email login and a per-user cloud copy. It is strictly a backup and
+  cross-device convenience: with no env vars set, everything still works local-only.
+- Hand-rolled service worker (`scripts/sw-template.js`, emitted by a plugin in
+  vite.config.ts). No Workbox, no vite-plugin-pwa.
+- Vitest for logic tests (dice, stat block parsing, XP math, attack resolution) plus
+  store-level session tests in `src/store.test.ts`. No component tests — drive the store,
+  not the DOM.
 
 ## Non-negotiables
 - Never invent monster or spell data. Every stat block comes from the API, the bundled
   SRD set, or something the user explicitly entered.
-- Nothing is a placeholder. If a control renders, it works. No "TODO: wire up" buttons.
+- Nothing is a placeholder. If a control renders, it works. No "TODO: wire up" buttons,
+  and no fields that are captured and displayed but never used.
 - All game math lives in `src/lib/` as pure functions with no React imports.
-- Types live in `src/types.ts` and are the single source of truth.
-- The app must be fully functional with no network connection.
-- Every state mutation autosaves. Losing round 4 of a boss fight is a product failure.
+- Types live in `src/types.ts` and are the single source of truth. Storage-only fields
+  (search indexes, etc.) belong next to their Dexie table, not in `types.ts`.
+- The app must be fully functional with no network connection. That means the shell too:
+  fonts are self-hosted in `public/fonts`, and the service worker precaches the entry
+  chunk. Never add a render-blocking third-party stylesheet or font.
+- Every state mutation autosaves, and a failed save must be visible. localStorage writes
+  go through the guarded storage in `store.ts`, which raises `storageBlocked` rather than
+  throwing out of `setState`. Losing round 4 of a boss fight is a product failure.
+- The cloud copy never silently wins. `lib/cloud/merge.ts` decides push / pull / conflict,
+  and a genuine fork asks the DM. Do not add a code path that calls `applyPersistSlice`
+  without a decision behind it.
+- Account data belongs to the account, not the browser. Campaigns, sheets, homebrew and
+  portraits all sync, sign-out clears the device (after a push that provably landed), and
+  signing in anywhere restores them. Anything you make device-local is therefore
+  something sign-out destroys — so do not add device-local user data.
+- Never store image bytes in Zustand state. Portraits go through `lib/portrait-store.ts`
+  and sheets carry a `portraitId`. `portraitDataUrl` is read-only legacy, cleared by the
+  migration; never write it.
+- `session === null` is not the same as offline. `authReachable` distinguishes them, and
+  the gate in App.tsx must keep doing so — an offline DM has to be able to reach the
+  campaigns already on their device.
+- Nothing multi-megabyte in the entry chunk. Catalog JSON is loaded with a dynamic
+  `import()`; modal-gated components go through `React.lazy` + `LazyOverlay`. The build
+  warns above 700 kB — take the warning seriously.
 - Prefer editing existing files over creating new ones. Ask before adding a dependency.
 
 ## Design constraints
 Used in dim light, at a table, one-handed, mid-sentence. Optimise for glanceability and
 click count, not for looking like a SaaS dashboard.
-- Dark UI. Colour carries meaning: one accent for whose turn it is, red for damage and
-  bloodied, green for healing and temp HP, violet for conditions and spell slots.
+- Earthy botanical palette on warm paper, in a Day and a Night theme sharing one token
+  set (see `@theme` and `html[data-theme='night']` in index.css). First run follows
+  `prefers-color-scheme`; index.html applies the theme before first paint, so never move
+  that decision into a React effect.
+- Ornament (`components/ornament/Botanical.tsx`, the parchment stage, vine rules) is
+  decorative only. It may never be the sole cue for state, it dims in combat, and it is
+  stripped entirely in shared-screen mode.
+- Colour carries meaning: one accent for whose turn it is, red for damage and bloodied,
+  green for healing and temp HP, blue-grey for conditions and spell slots, amber for
+  timers and warnings. Every semantic colour clears 4.5:1 on panel in both themes —
+  check before changing one.
 - HP, AC and initiative set in a monospace face at large sizes, tabular figures.
 - Applying damage is at most: click the field, type a number, press Enter.
-- Responsive to a phone, visible focus rings, `prefers-reduced-motion` respected.
-- No fantasy display font, no faux parchment. This is an instrument panel.
+- Below `md` the app is one pane at a time with a fixed bottom bar (Roster / Combat /
+  Log), not the desktop grid reflowed. The roster must always be reachable by touch.
+- Visible focus rings, and the keyboard actually works: global shortcuts bail out when a
+  focused control owns the key, so Space presses the button under focus.
+- `prefers-reduced-motion` respected.
 
 ## Out of scope — do not build these
 Maps, grids, tokens, fog of war, character creation, a rules chatbot, dice physics.

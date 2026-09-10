@@ -288,8 +288,9 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
           system: campaign.system,
           campaignId: campaign.id,
           query: pickerQuery,
+          limit: 20,
         });
-        if (!cancelled) setPickerHits(found.slice(0, 20).map((r) => r.creature));
+        if (!cancelled) setPickerHits(found.map((r) => r.creature));
       } finally {
         if (!cancelled) setPickerBusy(false);
       }

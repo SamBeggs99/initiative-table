@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { BloomCluster, SproutMark, VineRule } from './ornament/Botanical';
 import { getSupabase } from '../lib/cloud/client';
+import { useCloudAuth } from '../lib/cloud/auth-context';
 import { useStore } from '../store';
 
 type Mode = 'login' | 'register';
@@ -24,6 +25,14 @@ export function BootScreen({ message }: { message: string }) {
 
 export function LoginScreen() {
   useApplyTheme();
+  const { authReachable, continueOffline } = useCloudAuth();
+  /*
+   * Only offered when the auth server is genuinely unreachable AND this device
+   * already holds campaigns. A deliberate sign-out clears the device, so a
+   * clean install has nothing to offer and never shows this.
+   */
+  const localCampaigns = useStore((st) => st.campaigns.length);
+  const canWorkOffline = !authReachable && localCampaigns > 0;
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,7 +87,9 @@ export function LoginScreen() {
             <div>
               <h1 className="text-base font-semibold text-text">Dungeon Master MultiTool</h1>
               <p className="text-xs text-muted">
-                Sign in to load your campaigns on this device
+                {authReachable
+                  ? 'Sign in to load your campaigns on this device'
+                  : 'Can’t reach the server — check your connection'}
               </p>
             </div>
           </div>
@@ -147,7 +158,12 @@ export function LoginScreen() {
           <button
             type="submit"
             className="btn btn-primary w-full"
-            disabled={busy}
+            disabled={busy || !authReachable}
+            title={
+              authReachable
+                ? undefined
+                : 'Signing in needs a connection to your account'
+            }
           >
             {busy
               ? 'Please wait…'
@@ -155,10 +171,35 @@ export function LoginScreen() {
                 ? 'Log in'
                 : 'Create account'}
           </button>
+
+          {canWorkOffline && (
+            <>
+              <VineRule />
+              <div className="rounded border border-amber/50 bg-amber/10 px-3 py-2.5">
+                <p className="text-xs leading-relaxed text-text">
+                  There {localCampaigns === 1 ? 'is' : 'are'}{' '}
+                  <b>
+                    {localCampaigns} campaign{localCampaigns === 1 ? '' : 's'}
+                  </b>{' '}
+                  saved on this device. You can run tonight&apos;s session now
+                  and it will reach your account when the connection is back.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-accent mt-2.5 w-full"
+                  onClick={continueOffline}
+                >
+                  Work offline on this device
+                </button>
+              </div>
+            </>
+          )}
+
           <VineRule />
           <p className="text-xs leading-relaxed text-muted">
-            Campaigns, party, and homebrew save to your account. SRD monster and
-            spell catalogs stay on this device — use Sync after you sign in.
+            Campaigns, party, homebrew, and portraits save to your account, so
+            signing in on any device loads them. SRD monster and spell catalogs
+            stay a per-device download — use Sync after you sign in.
           </p>
         </form>
       </div>

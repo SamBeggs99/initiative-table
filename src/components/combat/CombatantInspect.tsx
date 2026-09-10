@@ -89,7 +89,12 @@ function PartyCard({
       }
     >
       <header className="mb-2 flex items-start gap-3">
-        <PortraitThumb src={member.portraitDataUrl} alt="" size="md" />
+        <PortraitThumb
+          portraitId={member.portraitId}
+          src={member.portraitDataUrl}
+          alt=""
+          size="md"
+        />
         <div className="min-w-0">
           <h3 className="sheet-title text-2xl leading-tight">{member.name}</h3>
           <p className="text-xs italic text-muted">
@@ -126,6 +131,7 @@ function NpcCard({ npc, combatant }: { npc: NpcRecord; combatant: Combatant }) {
     >
       <header className="mb-2 flex items-start gap-3">
         <PortraitThumb
+          portraitId={npc.portraitId ?? npc.statBlock?.portraitId}
           src={npc.portraitDataUrl ?? npc.statBlock?.portraitDataUrl}
           alt=""
           size="md"

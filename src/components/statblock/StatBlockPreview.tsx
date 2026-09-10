@@ -19,6 +19,7 @@ import { canonicalSkillName } from '../../lib/statblock-skills';
 import { AbilityBonusNudge } from './AbilityBonusNudge';
 import { DefenseTraitRow } from './DefenseTraitChips';
 import { CreatureSpellList } from './CreatureSpellList';
+import { PortraitThumb } from '../ui/Portrait';
 
 function EntryBlock({
   title,
@@ -164,14 +165,13 @@ export function StatBlockPreview({
   return (
     <article className="stat-sheet h-full overflow-auto p-3 text-sm">
       <header className="flex items-start gap-3">
-        {block.portraitDataUrl && (
-          <img
-            src={block.portraitDataUrl}
-            alt=""
-            className="portrait-thumb h-14 w-14 shrink-0"
-            draggable={false}
-          />
-        )}
+        <PortraitThumb
+          portraitId={block.portraitId}
+          src={block.portraitDataUrl}
+          alt=""
+          size="lg"
+          className="h-14 w-14 shrink-0"
+        />
         <div className="min-w-0">
           {!hideTitle && (
             <h3 className="sheet-title text-2xl leading-tight">

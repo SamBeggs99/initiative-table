@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { averageOf, resolveDamageExpr, rollExpression, rollWithAdvantage } from './dice';
+import {
+  averageOf,
+  maxOf,
+  resolveDamageExpr,
+  rollExpression,
+  rollWithAdvantage,
+} from './dice';
 
 describe('rollExpression', () => {
   it('parses NdM+K forms', () => {
@@ -75,5 +81,73 @@ describe('resolveDamageExpr', () => {
 
   it('rejects empty', () => {
     expect(() => resolveDamageExpr('  ')).toThrow(/Empty/);
+  });
+});
+
+describe('multi-term expressions', () => {
+  it('sums several dice terms and a modifier', () => {
+    // A smite: 1d8 weapon + 2d8 radiant + 4. Range 7..28.
+    for (let i = 0; i < 100; i++) {
+      const r = rollExpression('1d8+2d8+4');
+      expect(r.total).toBeGreaterThanOrEqual(7);
+      expect(r.total).toBeLessThanOrEqual(28);
+      expect(r.rolls).toHaveLength(3);
+    }
+  });
+
+  it('handles a subtracted die', () => {
+    for (let i = 0; i < 50; i++) {
+      const r = rollExpression('10-1d4');
+      expect(r.total).toBeGreaterThanOrEqual(6);
+      expect(r.total).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it('combines modifiers on either side', () => {
+    for (let i = 0; i < 50; i++) {
+      const r = rollExpression('2+1d4+3');
+      expect(r.total).toBeGreaterThanOrEqual(6);
+      expect(r.total).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it('averages a multi-term expression', () => {
+    expect(averageOf('1d8+2d8+4')).toBe(17.5);
+    expect(averageOf('10-1d4')).toBe(7.5);
+  });
+
+  it('reports the maximum', () => {
+    expect(maxOf('1d8+2d8+4')).toBe(28);
+    expect(maxOf('2d6')).toBe(12);
+  });
+
+  it('still enforces the 200-dice ceiling across all terms', () => {
+    expect(() => rollExpression('150d6+150d6')).toThrow(/200 dice/);
+  });
+
+  it('rejects junk rather than silently ignoring it', () => {
+    for (const bad of ['2d6 orcs', 'd', '2d', 'fireball', '2d6++3', '']) {
+      expect(() => rollExpression(bad)).toThrow();
+    }
+  });
+
+  it('shows every term in the detail string', () => {
+    const r = rollExpression('1d8+2d8+4');
+    expect(r.detail).toContain('1d8');
+    expect(r.detail).toContain('2d8');
+    expect(r.detail).toContain('+4');
+    expect(r.detail).toContain(`=${r.total}`);
+  });
+});
+
+describe('crit dice doubling', () => {
+  it('doubles every dice term and leaves the modifier', () => {
+    // 1d8+2d8+4 → 2d8+4d8+4, i.e. 6 dice and the same +4.
+    for (let i = 0; i < 50; i++) {
+      const r = rollExpression('1d8+2d8+4', { critDoubleDice: true });
+      expect(r.rolls).toHaveLength(6);
+      expect(r.total).toBeGreaterThanOrEqual(10);
+      expect(r.total).toBeLessThanOrEqual(52);
+    }
   });
 });

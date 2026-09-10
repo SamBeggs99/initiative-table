@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSystemAdapter } from '../../systems';
 import {
   selectActiveCampaign,
@@ -8,13 +8,18 @@ import {
 import { assignIdentityHues, hueHex } from '../../lib/identity';
 import { downloadText, sessionLogToMarkdown } from '../../lib/session-log';
 import { pendingLoot } from '../../lib/loot';
-import { resolveDamageExpr } from '../../lib/dice';
-import { entryDamageParts } from '../../lib/damage-types';
+import {
+  formatAttackLog,
+  outcomeLabel,
+  resolveAttack,
+  type AttackMode,
+} from '../../lib/attack';
+import { entryDamageParts, formatDamageParts } from '../../lib/damage-types';
 import { resolveHpField, applyTempHp } from '../../lib/combat';
 import { resolveCombatantPortrait } from '../../lib/portrait';
 import { spendActionsRemaining, type ActionCost } from '../../lib/pf2e-actions';
 import type { Entry } from '../../types';
-import { EncounterLibrary } from '../EncounterLibrary';
+import { LazyOverlay } from '../ui/LazyOverlay';
 import { BloomCluster } from '../ornament/Botanical';
 import { BulkSaveDialog } from './BulkSaveDialog';
 import { CombatantInspect } from './CombatantInspect';
@@ -26,6 +31,10 @@ import { DamageTypeSelect } from './DamageTypeSelect';
 import { InitiativePrompt } from './InitiativePrompt';
 import { ConditionDialog } from '../ui/AskDialog';
 import { Modal } from '../ui/Modal';
+
+const EncounterLibrary = lazy(() =>
+  import('../EncounterLibrary').then((m) => ({ default: m.EncounterLibrary })),
+);
 
 const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: 'Space / →', action: 'Next turn' },
@@ -40,6 +49,71 @@ const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: 'Ctrl+Z', action: 'Undo HP change (stack, up to 20)' },
   { keys: '?', action: 'This cheat sheet' },
 ];
+
+const ATTACK_HELP: { keys: string; action: string }[] = [
+  {
+    keys: 'Click an action',
+    action:
+      'Rolls to hit against each selected target’s AC, then applies damage to the hits only',
+  },
+  {
+    keys: '− = +',
+    action: 'Header toggle: roll those attacks with disadvantage, straight, or advantage',
+  },
+  {
+    keys: 'No +N on the chip',
+    action: 'No attack roll (save-based or automatic) — damage lands on everyone selected',
+  },
+  {
+    keys: 'Crit',
+    action: '5e doubles the dice, not the modifier. PF2e doubles the total (AC+10 or nat 20)',
+  },
+];
+
+/**
+ * Sets how the next action-chip attack rolls. Sticky rather than one-shot: a
+ * DM whose whole party is prone wants advantage to stay on for the round, and
+ * the header is where they can see that it is.
+ */
+function AttackModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: AttackMode;
+  onChange: (m: AttackMode) => void;
+}) {
+  const options: { id: AttackMode; label: string; title: string }[] = [
+    { id: 'dis', label: '−', title: 'Roll attacks with disadvantage' },
+    { id: 'flat', label: '=', title: 'Roll attacks straight' },
+    { id: 'adv', label: '+', title: 'Roll attacks with advantage' },
+  ];
+  return (
+    <div
+      className="flex items-center overflow-hidden rounded-lg border border-border"
+      role="radiogroup"
+      aria-label="Attack roll mode"
+      title="Applies to attacks rolled from an action chip"
+    >
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={mode === o.id}
+          title={o.title}
+          className={`px-2 py-1 font-mono-stats text-xs leading-4 transition-colors ${
+            mode === o.id
+              ? 'bg-accent/18 text-accent'
+              : 'text-muted hover:text-text'
+          }`}
+          onClick={() => onChange(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function InitiativeTracker({
   onFocusSearch,
@@ -90,6 +164,8 @@ export function InitiativeTracker({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDmg, setBulkDmg] = useState('');
   const [damageType, setDamageType] = useState('');
+  /** Advantage state for action-chip attack rolls. Sticky until changed. */
+  const [attackMode, setAttackMode] = useState<AttackMode>('flat');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -290,12 +366,46 @@ export function InitiativeTracker({
         return;
       }
 
-      let rolls;
+      let targetIds = [...selectedIds].filter((id) => id !== actorId);
+      if (targetIds.length === 0 && focusedId && focusedId !== actorId) {
+        targetIds = [focusedId];
+      }
+
+      const targets = targetIds
+        .map((id) => combat.combatants.find((c) => c.id === id))
+        .filter((c): c is (typeof combat.combatants)[number] => Boolean(c))
+        .map((c) => ({ id: c.id, name: c.name, ac: c.ac }));
+
+      if (targets.length === 0) {
+        const preview = formatDamageParts(parts);
+        pushLog(
+          `${actor.name} ${entry.name}: no target selected (${preview ?? 'no damage'})`,
+          'info',
+        );
+        pushToast(`${entry.name} — select or focus a target`);
+        return;
+      }
+
+      /*
+       * Roll to hit against each target's AC, then apply damage only where it
+       * landed. Every input was already in the store — the action's
+       * `attackBonus` and the target's `ac` — and until now the app rolled the
+       * damage and left the DM to decide the hit in their head.
+       *
+       * An action with no printed attack bonus (a save-based AoE) still applies
+       * to everyone selected, which is the previous behaviour.
+       */
+      let resolution;
       try {
-        rolls = parts.map((part) => ({
-          type: part.type.trim() || undefined,
-          ...resolveDamageExpr(part.expr.trim()),
-        }));
+        resolution = resolveAttack({
+          actorName: actor.name,
+          actionName: entry.name,
+          attackBonus: entry.attackBonus,
+          parts,
+          system: form.showPf2eBlock ? 'pf2e' : 'dnd5e',
+          mode: attackMode,
+          targets,
+        });
       } catch {
         pushToast(
           `Could not roll damage “${parts.map((p) => p.expr).join(' plus ')}”`,
@@ -303,50 +413,37 @@ export function InitiativeTracker({
         return;
       }
 
-      const total = rolls.reduce((sum, r) => sum + r.total, 0);
-      // "9 slashing + 4 fire", or just "13 damage" for a single clause.
-      const summary =
-        rolls.length > 1
-          ? rolls.map((r) => `${r.total} ${r.type ?? 'damage'}`).join(' + ')
-          : `${total} ${rolls[0]!.type ?? 'damage'}`;
-      const detail = rolls.map((r) => r.detail).join(' + ');
-      let targets = [...selectedIds].filter((id) => id !== actorId);
-      if (targets.length === 0 && focusedId && focusedId !== actorId) {
-        targets = [focusedId];
-      }
-
-      if (targets.length === 0) {
-        pushLog(
-          `${actor.name} ${entry.name}: ${summary} rolled, no target selected (${detail})`,
-          'info',
-        );
-        pushToast(
-          `${entry.name}: ${summary} — select or focus a target`,
-        );
-        return;
-      }
-
-      for (const id of targets) {
+      for (const t of resolution.targets) {
+        if (t.damage.length === 0) {
+          pulseRow(t.combatantId, 'miss');
+          continue;
+        }
         applyDamageParts(
-          id,
-          rolls.map((r) => ({ amount: r.total, type: r.type })),
+          t.combatantId,
+          t.damage.map((d) => ({ amount: d.amount, type: d.type })),
         );
-        pulseRow(id, rolls[0]!.type);
+        pulseRow(
+          t.combatantId,
+          t.attack.outcome === 'crit' ? 'crit' : t.damage[0]!.type,
+        );
       }
-      const names = combat.combatants
-        .filter((c) => targets.includes(c.id))
-        .map((c) => c.name)
-        .join(', ');
-      pushLog(
-        `${actor.name} ${entry.name} → ${names}: ${summary} (${detail})`,
-        'damage',
-      );
+
+      const anyHit = resolution.targets.some((t) => t.damage.length > 0);
+      pushLog(formatAttackLog(resolution), anyHit ? 'damage' : 'info');
+
+      if (resolution.rolled) {
+        const summary = resolution.targets
+          .map((t) => `${t.name} ${outcomeLabel(t.attack.outcome)}`)
+          .join(', ');
+        pushToast(`${entry.name}: ${summary}`);
+      }
     },
     [
       combat.combatants,
       form.showPf2eBlock,
       selectedIds,
       focusedId,
+      attackMode,
       updateCombatant,
       pushLog,
       pushToast,
@@ -357,12 +454,27 @@ export function InitiativeTracker({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
       const typing =
         tag === 'INPUT' ||
         tag === 'TEXTAREA' ||
         tag === 'SELECT' ||
-        (e.target as HTMLElement)?.isContentEditable;
+        el?.isContentEditable;
+      /*
+       * A focused control owns its own keys. Without this, Space on a focused
+       * button advanced the turn instead of pressing it (preventDefault here
+       * suppresses the button's activation), and d / h / s / j / k were stolen
+       * the same way — so the app was unusable from the keyboard despite
+       * shipping focus rings for exactly that.
+       */
+      const onControl =
+        tag === 'BUTTON' ||
+        tag === 'A' ||
+        tag === 'SUMMARY' ||
+        el?.getAttribute('role') === 'menuitem' ||
+        el?.getAttribute('role') === 'tab' ||
+        el?.getAttribute('role') === 'checkbox';
 
       if (e.key === 'Escape') {
         setBulkOpen(false);
@@ -380,11 +492,14 @@ export function InitiativeTracker({
         return;
       }
 
+      // Ctrl+Z is not a control's own key, so undo stays live everywhere.
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undoLast();
         return;
       }
+
+      if (onControl) return;
 
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
@@ -537,6 +652,9 @@ export function InitiativeTracker({
             >
               Library
             </button>
+          )}
+          {!sharedScreen && (
+            <AttackModeToggle mode={attackMode} onChange={setAttackMode} />
           )}
           <button
             type="button"
@@ -768,7 +886,7 @@ export function InitiativeTracker({
               <CombatantRow
                 combatant={c}
                 hue={hueHex(identityHues.get(c.id))}
-                portraitUrl={resolveCombatantPortrait(c, campaign)}
+                portrait={resolveCombatantPortrait(c, campaign)}
                 active={combat.started && index === combat.turnIndex}
                 selected={selectedIds.has(c.id)}
                 focused={focusIndex === index}
@@ -1012,6 +1130,17 @@ export function InitiativeTracker({
               <HpFieldLegend />
               <section>
                 <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                  Attacks
+                </h3>
+                <ul className="mb-4 space-y-1.5 text-sm">
+                  {ATTACK_HELP.map((s) => (
+                    <li key={s.keys} className="flex justify-between gap-4">
+                      <kbd className="chip shrink-0">{s.keys}</kbd>
+                      <span className="text-right text-muted">{s.action}</span>
+                    </li>
+                  ))}
+                </ul>
+                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
                   Keys
                 </h3>
                 <ul className="space-y-1.5 text-sm">
@@ -1028,7 +1157,11 @@ export function InitiativeTracker({
         </div>
       )}
 
-      {libraryOpen && <EncounterLibrary onClose={() => setLibraryOpen(false)} />}
+      {libraryOpen && (
+        <LazyOverlay>
+          <EncounterLibrary onClose={() => setLibraryOpen(false)} />
+        </LazyOverlay>
+      )}
 
       {conditionForId && (
         <ConditionDialog

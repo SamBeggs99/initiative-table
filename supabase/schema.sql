@@ -28,3 +28,12 @@ create policy "user_blobs_update_own"
   on public.user_blobs for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Portraits: character art as base64 keyed by content hash. Added after the
+-- initial release, so it is a separate statement — safe to re-run.
+--
+-- Portraits live in the account rather than on the device because signing out
+-- clears the device, and because a portrait is part of a character sheet: a DM
+-- who signs in on a phone should see the same faces as on the laptop.
+alter table public.user_blobs
+  add column if not exists portraits jsonb not null default '[]'::jsonb;

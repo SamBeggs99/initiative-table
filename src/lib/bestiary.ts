@@ -86,16 +86,21 @@ export async function deleteHomebrewCreaturesForCampaign(
   return ids.length;
 }
 
-/** Attach or clear portrait art on any bestiary record (homebrew / bundled / synced). */
+/**
+ * Attach or clear portrait art on any bestiary record (homebrew / bundled /
+ * synced). Takes an id into the portrait store; the legacy inline data URL is
+ * dropped on write so a migrated record never carries both.
+ */
 export async function setCreaturePortrait(
   id: string,
-  portraitDataUrl: string | undefined,
+  portraitId: string | undefined,
 ): Promise<StatBlock | null> {
   const existing = await bestiaryDb.creatures.get(id);
   if (!existing) return null;
   const record: StatBlock = {
     ...existing,
-    portraitDataUrl: portraitDataUrl || undefined,
+    portraitId: portraitId || undefined,
+    portraitDataUrl: undefined,
     updatedAt: Date.now(),
   };
   await bestiaryDb.creatures.put(record);

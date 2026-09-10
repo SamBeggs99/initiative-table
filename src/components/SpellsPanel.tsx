@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useEffect, useMemo, useRef, useState } from 'react';
+const SpellEditor = lazy(() =>
+  import('./spells/SpellEditor').then((m) => ({ default: m.SpellEditor })),
+);
 import {
   blankSpell,
   ensureSpellsSeeded,
@@ -9,7 +12,7 @@ import {
 import { getSystemAdapter } from '../systems';
 import { useStore } from '../store';
 import type { Spell } from '../types';
-import { SpellEditor } from './spells/SpellEditor';
+import { LazyOverlay } from './ui/LazyOverlay';
 import { SpellPreview } from './spells/SpellPreview';
 import { spellLevelLabel } from '../lib/spells';
 import { Modal } from './ui/Modal';
@@ -304,6 +307,7 @@ export function SpellsPanel() {
       )}
 
       {editor && (
+        <LazyOverlay>
         <SpellEditor
           system={campaign.system}
           campaignId={campaign.id}
@@ -319,6 +323,7 @@ export function SpellsPanel() {
             void refreshStats();
           }}
         />
+        </LazyOverlay>
       )}
     </div>
   );

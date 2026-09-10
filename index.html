@@ -4,14 +4,57 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%favicon-180.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#121612" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)" />
+    <meta
+      name="description"
+      content="A D&amp;D 5e and Pathfinder 2e combat manager and campaign multi-tool for DMs running games live at the table."
+    />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <!--
+      Fonts are self-hosted (see src/index.css) so a cold load needs no network.
+      Preload only the two faces that paint immediately — the UI sans and the
+      stats mono. Fraunces is display-only and can arrive a beat later.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="%BASE_URL%fonts/ibm-plex-sans-var-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="%BASE_URL%fonts/jetbrains-mono-var-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <title>Dungeon Master MultiTool</title>
+    <script>
+      /*
+       * Paint in the right theme on the very first frame. The theme lives in
+       * the persisted store and used to be applied by a React effect after
+       * mount, so a night-theme DM got a full-brightness flash on every load —
+       * in a dim room, at a table, which is the whole point of the theme.
+       */
+      (function () {
+        try {
+          var raw = localStorage.getItem('initiative-table');
+          var saved = raw && JSON.parse(raw);
+          var theme = saved && saved.state && saved.state.settings && saved.state.settings.theme;
+          if (theme !== 'day' && theme !== 'night') {
+            theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'day'
+              : 'night';
+          }
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'night';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

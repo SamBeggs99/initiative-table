@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CampaignSettings } from './components/CampaignSettings';
+import { lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { LazyOverlay } from './components/ui/LazyOverlay';
 import { BestiaryPanel } from './components/BestiaryPanel';
 import { SpellsPanel } from './components/SpellsPanel';
 import { NpcPanel } from './components/NpcPanel';
@@ -15,10 +15,13 @@ import {
   Sprig,
   SproutMark,
 } from './components/ornament/Botanical';
-import { FirstCampaignWizard } from './components/FirstCampaignWizard';
-import { DevGallery } from './components/DevGallery';
+
 import { UndoBar } from './components/UndoBar';
 import { CloudSyncGate } from './components/CloudSyncGate';
+import { CloudStatusPill } from './components/CloudStatusPill';
+import { StorageBanner } from './components/StorageBanner';
+import { LocalOnlyBanner } from './components/LocalOnlyBanner';
+import { NARROW_QUERY, useMediaQuery } from './lib/use-media-query';
 import { useCloudAuth } from './lib/cloud/auth-context';
 import { BootScreen, LoginScreen } from './components/LoginScreen';
 import { getSystemAdapter } from './systems';
@@ -28,9 +31,29 @@ import {
   useStore,
 } from './store';
 
+// Split out of the entry chunk: none of these are on screen at boot.
+const CampaignSettings = lazy(() =>
+  import('./components/CampaignSettings').then((m) => ({
+    default: m.CampaignSettings,
+  })),
+);
+const FirstCampaignWizard = lazy(() =>
+  import('./components/FirstCampaignWizard').then((m) => ({
+    default: m.FirstCampaignWizard,
+  })),
+);
+const DevGallery = lazy(() =>
+  import('./components/DevGallery').then((m) => ({ default: m.DevGallery })),
+);
+const SignOutDialog = lazy(() =>
+  import('./components/SignOutDialog').then((m) => ({ default: m.SignOutDialog })),
+);
+
 type SessionMode = 'setup' | 'combat' | 'downtime';
 type RosterSection = 'players' | 'npcs' | 'library' | 'notes';
 type LibraryPane = 'creatures' | 'spells';
+/** Below `md` the app shows one of these at a time, chosen from a bottom bar. */
+type MobilePane = 'roster' | 'combat' | 'log';
 
 function deriveSessionMode(
   started: boolean,
@@ -93,6 +116,7 @@ function CampaignStrip({
           </label>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <CloudStatusPill />
           <button
             type="button"
             className="btn btn-text btn-sm hidden sm:inline-flex shared-hide"
@@ -108,7 +132,11 @@ function CampaignStrip({
           />
         </div>
       </header>
-      {settingsOpen && <CampaignSettings onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <LazyOverlay>
+          <CampaignSettings onClose={() => setSettingsOpen(false)} />
+        </LazyOverlay>
+      )}
     </>
   );
 }
@@ -123,10 +151,11 @@ function HeaderOverflow({
   onOpenSettings: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
-  const { configured, session, email, signOut } = useCloudAuth();
+  const { configured, session, email } = useCloudAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -221,13 +250,18 @@ function HeaderOverflow({
               title={email ? `Signed in as ${email}` : 'Sign out'}
               onClick={() => {
                 setOpen(false);
-                void signOut();
+                setSignOutOpen(true);
               }}
             >
               Sign out
             </button>
           )}
         </div>
+      )}
+      {signOutOpen && (
+        <LazyOverlay>
+          <SignOutDialog onClose={() => setSignOutOpen(false)} />
+        </LazyOverlay>
       )}
     </div>
   );
@@ -454,7 +488,18 @@ function RightColumn() {
         <TrackersPanel />
         <section className="flex min-h-32 shrink-0 flex-col p-3">
           <h2 className="section-title mb-2">Session log</h2>
-          <div className="min-h-0 flex-1 overflow-auto font-mono-stats text-[11px] tabular-nums">
+          {/*
+            The log is the app's running narration — damage, saves, expiring
+            conditions. Announcing it politely means a screen-reader user hears
+            what the table just saw, instead of it being visual-only.
+          */}
+          <div
+            className="min-h-0 flex-1 overflow-auto font-mono-stats text-[11px] tabular-nums"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+            aria-label="Session log"
+          >
             {log.length === 0 ? (
               <div className="flex items-center gap-2 text-muted">
                 <Sprig />
@@ -493,7 +538,7 @@ export default function App() {
   const [gallery, setGallery] = useState(
     () => window.location.hash === '#/dev/gallery',
   );
-  const { configured, ready, session } = useCloudAuth();
+  const { configured, ready, session, localOnly } = useCloudAuth();
 
   useEffect(() => {
     const onHash = () => setGallery(window.location.hash === '#/dev/gallery');
@@ -503,20 +548,28 @@ export default function App() {
 
   if (gallery) {
     return (
-      <DevGallery
-        onBack={() => {
-          window.location.hash = '';
-          setGallery(false);
-        }}
-      />
+      <LazyOverlay>
+        <DevGallery
+          onBack={() => {
+            window.location.hash = '';
+            setGallery(false);
+          }}
+        />
+      </LazyOverlay>
     );
   }
 
   if (configured && !ready) {
     return <BootScreen message="Signing in…" />;
   }
-  if (configured && !session) {
+  if (configured && !session && !localOnly) {
     return <LoginScreen />;
+  }
+
+  // Local-only skips the sync gate entirely — there is no session to sync with,
+  // and the work done now is what the next sign-in pushes.
+  if (localOnly) {
+    return <TableApp />;
   }
 
   return (
@@ -531,6 +584,8 @@ function TableApp() {
   const [section, setSection] = useState<RosterSection>('players');
   const [libraryPane, setLibraryPane] = useState<LibraryPane>('creatures');
   const [rosterExpanded, setRosterExpanded] = useState(false);
+  // Combat first: it is what the DM opens the app to do.
+  const [mobilePane, setMobilePane] = useState<MobilePane>('combat');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardForced, setWizardForced] = useState(false);
   const combat = useStore(selectActiveCombat);
@@ -594,6 +649,8 @@ function TableApp() {
     setSection('library');
     setLibraryPane('creatures');
     setRosterExpanded(true);
+    // On a phone the roster is a separate pane, so bring it to the front.
+    setMobilePane('roster');
     window.setTimeout(() => {
       document.getElementById('bestiary-search')?.focus();
     }, 50);
@@ -619,8 +676,68 @@ function TableApp() {
         ? 'grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(32rem,1fr)_minmax(36rem,1fr)] overflow-y-auto md:grid-cols-[minmax(14rem,18rem)_1fr_minmax(14rem,18rem)] md:grid-rows-1 md:overflow-hidden'
         : 'grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(24rem,1fr)_minmax(32rem,1fr)_minmax(36rem,1fr)] overflow-y-auto md:grid-cols-[minmax(14rem,18rem)_1fr_minmax(14rem,18rem)] md:grid-rows-1 md:overflow-hidden';
 
+  /*
+   * On a phone the three columns used to stack into a ~1,400px scroll with the
+   * tracker 384px down the page — and in combat the roster rail is
+   * `hidden md:flex`, so it vanished entirely with no touch control anywhere to
+   * bring it back: a DM on a phone mid-fight could not add a monster or open a
+   * party sheet. Below `md` this shows one pane at a time with a fixed bottom
+   * bar, which is what "one hand free, mid-sentence" actually needs.
+   */
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const mobile = narrow && !sharedScreen;
+
+  if (mobile) {
+    return (
+      <div className="flex h-full flex-col">
+        <StorageBanner />
+        <LocalOnlyBanner />
+        <CampaignStrip
+          onNewCampaign={openNewCampaignWizard}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          {mobilePane === 'roster' && (
+            <LeftColumn
+              section={section}
+              setSection={setSection}
+              libraryPane={libraryPane}
+              setLibraryPane={setLibraryPane}
+              mode={mode}
+              collapsed={false}
+              onStartWizard={openNewCampaignWizard}
+            />
+          )}
+          {mobilePane === 'combat' && (
+            <InitiativeTracker
+              onFocusSearch={openCreatureSearch}
+              onOpenBestiary={openCreatureSearch}
+            />
+          )}
+          {mobilePane === 'log' && <RightColumn />}
+        </div>
+        <MobileTabBar
+          pane={mobilePane}
+          onSelect={setMobilePane}
+          combatantCount={combat.combatants.length}
+          inCombat={combat.started}
+        />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <ToastHost />
+        <UndoBar />
+        {wizardOpen && (
+          <LazyOverlay>
+            <FirstCampaignWizard forceOpen={wizardForced} onClose={closeWizard} />
+          </LazyOverlay>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
+      <StorageBanner />
+        <LocalOnlyBanner />
       <CampaignStrip
         onNewCampaign={openNewCampaignWizard}
         onOpenPalette={() => setPaletteOpen(true)}
@@ -649,11 +766,64 @@ function TableApp() {
       <ToastHost />
       <UndoBar />
       {wizardOpen && (
-        <FirstCampaignWizard
-          forceOpen={wizardForced}
-          onClose={closeWizard}
-        />
+        <LazyOverlay>
+          <FirstCampaignWizard forceOpen={wizardForced} onClose={closeWizard} />
+        </LazyOverlay>
       )}
     </div>
+  );
+}
+
+/**
+ * Fixed, thumb-reachable, and always present — the roster must never become
+ * unreachable again. Sits above the iOS home indicator via the safe-area inset.
+ */
+function MobileTabBar({
+  pane,
+  onSelect,
+  combatantCount,
+  inCombat,
+}: {
+  pane: MobilePane;
+  onSelect: (p: MobilePane) => void;
+  combatantCount: number;
+  inCombat: boolean;
+}) {
+  const tabs: { id: MobilePane; label: string; badge?: string }[] = [
+    { id: 'roster', label: 'Roster' },
+    {
+      id: 'combat',
+      label: inCombat ? 'Combat' : 'Tracker',
+      badge: combatantCount > 0 ? String(combatantCount) : undefined,
+    },
+    { id: 'log', label: 'Log' },
+  ];
+
+  return (
+    <nav
+      className="tabbar-mobile grid shrink-0 grid-cols-3 border-t border-border bg-panel/95"
+      aria-label="Main sections"
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          aria-current={pane === t.id ? 'page' : undefined}
+          className={`flex min-h-12 items-center justify-center gap-1.5 text-xs font-medium transition-colors ${
+            pane === t.id
+              ? 'border-t-2 border-accent text-accent'
+              : 'border-t-2 border-transparent text-muted'
+          }`}
+          onClick={() => onSelect(t.id)}
+        >
+          {t.label}
+          {t.badge && (
+            <span className="font-mono-stats tabular-nums opacity-70">
+              {t.badge}
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
   );
 }

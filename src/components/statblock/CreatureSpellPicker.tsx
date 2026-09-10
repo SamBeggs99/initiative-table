@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { lazy, useEffect, useState } from 'react';
+const SpellEditor = lazy(() =>
+  import('../spells/SpellEditor').then((m) => ({ default: m.SpellEditor })),
+);
 import {
   addSpellRef,
   derivedSpellAttackBonus,
@@ -25,7 +28,7 @@ import {
   spellLevelLabel,
 } from '../../lib/spells';
 import type { Ability, Spell, StatBlock, StatBlockSpellRef } from '../../types';
-import { SpellEditor } from '../spells/SpellEditor';
+import { LazyOverlay } from '../ui/LazyOverlay';
 
 export function CreatureSpellPicker({
   block,
@@ -387,6 +390,7 @@ export function CreatureSpellPicker({
         </p>
       )}
       {customDraft && campaignId && (
+        <LazyOverlay>
         <SpellEditor
           system={system}
           campaignId={campaignId}
@@ -395,6 +399,7 @@ export function CreatureSpellPicker({
           onClose={() => setCustomDraft(null)}
           onSaved={(spell) => add(spell)}
         />
+        </LazyOverlay>
       )}
     </section>
   );

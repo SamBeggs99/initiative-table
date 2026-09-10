@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, useEffect, useMemo, useRef, useState } from 'react';
+/** The panel renders this many rows; passing it down lets the search stop early. */
+const RESULT_LIMIT = 40;
+
+const CreatureEditor = lazy(() =>
+  import('./statblock/CreatureEditor').then((m) => ({
+    default: m.CreatureEditor,
+  })),
+);
 import {
   buildCombatantsFromStatBlock,
   ensureBundledSeeded,
@@ -11,7 +19,8 @@ import { npcFromStatBlock } from '../lib/npc';
 import { getSystemAdapter } from '../systems';
 import { useStore } from '../store';
 import type { NpcRecord, StatBlock } from '../types';
-import { CreatureEditor, type EditorMode } from './statblock/CreatureEditor';
+import type { EditorMode } from './statblock/CreatureEditor';
+import { LazyOverlay } from './ui/LazyOverlay';
 import {
   StatBlockPreview,
   creatureCatalogLine,
@@ -72,8 +81,9 @@ export function BestiaryPanel() {
       system: campaign.system,
       campaignId: campaign.id,
       query,
+      limit: RESULT_LIMIT,
     });
-    setResults(found.slice(0, 40));
+    setResults(found);
   };
 
   useEffect(() => {
@@ -90,11 +100,12 @@ export function BestiaryPanel() {
             system: campaign.system,
             campaignId: campaign.id,
             query,
+            limit: RESULT_LIMIT,
           }),
         ]);
         if (!cancelled) {
           setStats(nextStats);
-          setResults(found.slice(0, 40));
+          setResults(found);
           setSelectedId((id) => id ?? found[0]?.creature.id ?? null);
           setBestiaryReady(true);
         }
@@ -106,11 +117,12 @@ export function BestiaryPanel() {
             system: campaign.system,
             campaignId: campaign.id,
             query,
+            limit: RESULT_LIMIT,
           }),
         ]);
         if (!cancelled) {
           setStats(seededStats);
-          setResults(seededFound.slice(0, 40));
+          setResults(seededFound);
         }
       } catch (err) {
         if (!cancelled) {
@@ -136,9 +148,10 @@ export function BestiaryPanel() {
         system: campaign.system,
         campaignId: campaign.id,
         query,
+        limit: RESULT_LIMIT,
       });
       if (!cancelled) {
-        setResults(found.slice(0, 40));
+        setResults(found);
         if (found[0]) setSelectedId((id) => id ?? found[0]!.creature.id);
       }
     }, 120);
@@ -375,6 +388,7 @@ export function BestiaryPanel() {
                 }}
               >
                 <PortraitThumb
+                  portraitId={r.creature.portraitId}
                   src={r.creature.portraitDataUrl}
                   alt=""
                   size="xs"
@@ -455,11 +469,12 @@ export function BestiaryPanel() {
               size="sm"
               label={`Portrait · ${selected.creature.name}`}
               value={selected.creature.portraitDataUrl}
-              onChange={(portraitDataUrl) => {
+              portraitId={selected.creature.portraitId}
+              onChange={(portraitId) => {
                 void (async () => {
                   const saved = await setCreaturePortrait(
                     selected.creature.id,
-                    portraitDataUrl,
+                    portraitId,
                   );
                   if (!saved) return;
                   setRefreshKey((k) => k + 1);
@@ -530,6 +545,7 @@ export function BestiaryPanel() {
       )}
 
       {editor && (
+        <LazyOverlay>
         <CreatureEditor
           system={campaign.system}
           campaignId={campaign.id}
@@ -549,6 +565,7 @@ export function BestiaryPanel() {
             void refreshStats();
           }}
         />
+        </LazyOverlay>
       )}
 
       {npcDraft && (

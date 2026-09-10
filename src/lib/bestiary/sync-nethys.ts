@@ -78,9 +78,7 @@ function isMappedStatBlock(row: unknown): row is StatBlock {
 async function loadBundledNethysSnapshot(
   onProgress?: (p: SyncProgress) => void,
 ): Promise<StatBlock[]> {
-  const mod = await import('../../data/nethys-monster-core.json', {
-    with: { type: 'json' },
-  });
+  const mod = await import('../../data/nethys-monster-core.json');
   const loaded = (mod as { default?: unknown }).default ?? mod;
   const raw = Array.isArray(loaded) ? loaded : [];
   if (raw.length === 0) {

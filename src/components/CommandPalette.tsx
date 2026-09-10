@@ -102,9 +102,10 @@ export function CommandPalette({
         system,
         campaignId,
         query: creatureQuery,
+        limit: 8,
       });
       if (cancelled) return;
-      const next = hits.slice(0, 8).map((h) => ({
+      const next = hits.map((h) => ({
         id: h.creature.id,
         name: h.creature.name,
       }));

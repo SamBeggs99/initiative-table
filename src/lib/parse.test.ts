@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   attackBonusFromDesc,
   damageFieldsFromDesc,
+  damagePartsFromDesc,
   durationFromDesc,
   enrichEntry,
   enrichEntryDamage,
@@ -118,6 +119,40 @@ describe('damageFieldsFromDesc / enrichEntryDamage', () => {
       desc: 'Hit: 5 (1d6 + 2) slashing damage.',
       damage: { expr: '1d6+2', type: 'slashing' },
     });
+  });
+
+  it('damagePartsFromDesc keeps every clause on the Hit line', () => {
+    expect(
+      damagePartsFromDesc(
+        'Hit: 7 (1d8 + 3) piercing damage plus 3 (1d6) fire damage.',
+      ),
+    ).toEqual([
+      { expr: '1d8+3', type: 'piercing' },
+      { expr: '1d6', type: 'fire' },
+    ]);
+  });
+
+  it('enrichEntryDamage files extra clauses as riders', () => {
+    expect(
+      enrichEntryDamage({
+        name: 'Flame Tongue',
+        desc: 'Hit: 7 (1d8 + 3) slashing damage plus 7 (2d6) fire damage.',
+      }),
+    ).toEqual({
+      name: 'Flame Tongue',
+      desc: 'Hit: 7 (1d8 + 3) slashing damage plus 7 (2d6) fire damage.',
+      damage: { expr: '1d8+3', type: 'slashing' },
+      extraDamage: [{ expr: '2d6', type: 'fire' }],
+    });
+  });
+
+  it('enrichEntryDamage leaves extraDamage off a single-clause hit', () => {
+    expect(
+      enrichEntryDamage({
+        name: 'Club',
+        desc: 'Hit: 3 (1d4 + 1) bludgeoning damage.',
+      }),
+    ).not.toHaveProperty('extraDamage');
   });
 });
 

@@ -3,17 +3,28 @@ import { newId } from './lib/uuid';
 export type Ability = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 export type System = 'dnd5e' | 'pf2e';
 
+/**
+ * One rolled damage clause. `expr` is dice (`2d6+3`) or a flat number (`8`);
+ * `type` is a damage type, or empty for untyped.
+ */
+export interface DamagePart {
+  expr: string;
+  type: string;
+}
+
 export interface Entry {
   name: string;
   desc: string;
   /**
-   * Structured hit damage for the action — same shape for 5e and PF2e.
-   * `expr` is dice (`2d6+3`) or a flat number (`8`).
+   * Primary hit damage for the action — same shape for 5e and PF2e.
    */
-  damage?: {
-    expr: string;
-    type: string;
-  };
+  damage?: DamagePart;
+  /**
+   * Riders rolled alongside the primary die on the same hit — “plus 1d6 fire”.
+   * Each part rolls on its own and lands with its own type, so resistances
+   * and immunities are read per part.
+   */
+  extraDamage?: DamagePart[];
   /**
    * Special conditions to use the ability (PF2e Requirements, 5e triggers,
    * “only while bloodied”, etc.). Empty/undefined = none.

@@ -554,6 +554,8 @@ export function BestiaryPanel() {
       {npcDraft && (
         <NpcQuickEditor
           npc={npcDraft}
+          system={campaign.system}
+          campaignId={campaign.id}
           onCancel={() => setNpcDraft(null)}
           onSave={(npc) => {
             upsertNpc(npc);

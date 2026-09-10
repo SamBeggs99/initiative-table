@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { slugifyName } from '../../lib/bestiary/ids';
 import { deleteHomebrewSpell, saveHomebrewSpell } from '../../lib/spells';
 import type { Spell, System } from '../../types';
@@ -9,6 +9,7 @@ export function SpellEditor({
   system,
   campaignId,
   initial,
+  mode,
   onClose,
   onSaved,
   onDeleted,
@@ -16,6 +17,8 @@ export function SpellEditor({
   system: System;
   campaignId: string;
   initial: Spell;
+  /** Defaults to 'edit' for a saved homebrew spell, 'new' otherwise. */
+  mode?: 'new' | 'edit';
   onClose: () => void;
   onSaved: (spell: Spell) => void;
   onDeleted?: (id: string) => void;
@@ -24,6 +27,25 @@ export function SpellEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const editing =
+    (mode ??
+      (initial.origin === 'homebrew' && initial.name !== 'New spell'
+        ? 'edit'
+        : 'new')) === 'edit';
+
+  // Capture Escape: this dialog can sit on top of the creature editor, whose
+  // own Escape handler would otherwise close the sheet underneath us.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      if (confirmDelete) setConfirmDelete(false);
+      else onClose();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [confirmDelete, onClose]);
 
   const patch = (partial: Partial<Spell>) => {
     setDraft((d) => ({ ...d, ...partial, updatedAt: Date.now() }));
@@ -62,12 +84,10 @@ export function SpellEditor({
       <div className="my-4 w-full max-w-4xl card overflow-hidden shadow-2xl">
         <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <h2 className="text-sm font-semibold text-text">
-            {initial.origin === 'homebrew' && initial.name !== 'New spell'
-              ? 'Edit spell'
-              : 'New spell'}
+            {editing ? 'Edit spell' : 'New spell'}
           </h2>
           <div className="flex gap-1">
-            {draft.origin === 'homebrew' && initial.id && (
+            {editing && draft.origin === 'homebrew' && initial.id && (
               <button
                 type="button"
                 className="btn btn-sm btn-danger"

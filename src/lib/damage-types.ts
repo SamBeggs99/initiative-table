@@ -1,5 +1,7 @@
 /** Shared damage types for 5e and PF2e action lines. */
 
+import type { DamagePart, Entry } from '../types';
+
 export const DAMAGE_TYPES = [
   'slashing',
   'piercing',
@@ -34,11 +36,36 @@ export function normalizeDamageType(raw: string): DamageType | string {
 }
 
 export function formatEntryDamage(
-  damage: { expr: string; type: string } | undefined,
+  damage: DamagePart | undefined,
 ): string | null {
   if (!damage?.expr?.trim()) return null;
   const type = damage.type.trim();
   return type ? `${damage.expr.trim()} ${type}` : damage.expr.trim();
+}
+
+/** Every damage clause on an action, primary first. Blank exprs are dropped. */
+export function entryDamageParts(
+  entry: Pick<Entry, 'damage' | 'extraDamage'> | undefined,
+): DamagePart[] {
+  if (!entry) return [];
+  return [entry.damage, ...(entry.extraDamage ?? [])].filter(
+    (p): p is DamagePart => Boolean(p?.expr?.trim()),
+  );
+}
+
+/** “2d6+3 slashing plus 1d6 fire”. Null when nothing rolls. */
+export function formatDamageParts(parts: DamagePart[]): string | null {
+  const bits = parts
+    .map((p) => formatEntryDamage(p))
+    .filter((b): b is string => Boolean(b));
+  return bits.length > 0 ? bits.join(' plus ') : null;
+}
+
+/** Split an action's damage clauses off an entry and format them in one go. */
+export function formatEntryDamageLine(
+  entry: Pick<Entry, 'damage' | 'extraDamage'> | undefined,
+): string | null {
+  return formatDamageParts(entryDamageParts(entry));
 }
 
 /** Brief hit-flash colours for the initiative tape. Untyped uses the damage token. */

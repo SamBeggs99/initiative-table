@@ -1,4 +1,4 @@
-import { formatEntryDamage } from '../../lib/damage-types';
+import { formatEntryDamageLine } from '../../lib/damage-types';
 import { formatEntryOffense } from '../../lib/parse';
 import {
   actionCostGlyph,
@@ -44,7 +44,7 @@ export function ActionStrip({
             ? 0
             : (cost as 1 | 2 | 3);
         const tooExpensive = showCosts && spend > 0 && remaining < spend;
-        const dmg = formatEntryDamage(a.damage);
+        const dmg = formatEntryDamageLine(a);
         const offense = formatEntryOffense(a);
         const req = a.requirements?.trim();
         const time = a.duration?.trim();

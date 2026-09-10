@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { DAMAGE_TYPES } from '../../lib/damage-types';
+import { DAMAGE_TYPES, entryDamageParts } from '../../lib/damage-types';
 import {
   attackBonusFromDesc,
-  damageFieldsFromDesc,
+  damagePartsFromDesc,
   durationFromDesc,
   requirementsFromDesc,
 } from '../../lib/parse';
 import { formatModifier } from '../../lib/statblock-derived';
-import type { Entry } from '../../types';
+import type { DamagePart, Entry } from '../../types';
 
 interface EntryListEditorProps {
   label: string;
@@ -88,18 +88,49 @@ export function EntryListEditor({
     }
   };
 
+  /** Damage rows as edited: row 0 is Entry.damage, the rest are riders. */
+  const damageRows = (entry: Entry): DamagePart[] => [
+    entry.damage ?? { expr: '', type: 'slashing' },
+    ...(entry.extraDamage ?? []),
+  ];
+
+  const writeDamage = (index: number, rows: DamagePart[]) => {
+    const [first, ...extra] = rows;
+    const kept = extra.filter((p) => p.expr.trim() || p.type.trim());
+    const primary =
+      first && (first.expr.trim() || first.type.trim()) ? first : undefined;
+    // A rider with no primary would never roll — promote it instead.
+    const [head, ...tail] = primary ? [primary, ...kept] : kept;
+    update(index, {
+      damage: head,
+      extraDamage: tail.length > 0 ? tail : undefined,
+    });
+  };
+
   const patchDamage = (
     index: number,
-    patch: Partial<NonNullable<Entry['damage']>>,
+    row: number,
+    patch: Partial<DamagePart>,
   ) => {
-    const entry = entries[index]!;
-    const base = entry.damage ?? { expr: '', type: 'slashing' };
-    const next = { ...base, ...patch };
-    if (!next.expr.trim() && !next.type.trim()) {
-      update(index, { damage: undefined });
-      return;
-    }
-    update(index, { damage: next });
+    const rows = damageRows(entries[index]!);
+    writeDamage(
+      index,
+      rows.map((p, i) => (i === row ? { ...p, ...patch } : p)),
+    );
+  };
+
+  const addDamageRow = (index: number) => {
+    writeDamage(index, [
+      ...damageRows(entries[index]!),
+      { expr: '', type: 'fire' },
+    ]);
+  };
+
+  const removeDamageRow = (index: number, row: number) => {
+    writeDamage(
+      index,
+      damageRows(entries[index]!).filter((_, i) => i !== row),
+    );
   };
 
   return (
@@ -186,43 +217,80 @@ export function EntryListEditor({
             </div>
 
             {showDamage && (
-              <div className="mb-1.5 flex flex-wrap items-end gap-1.5">
-                <label className="min-w-[6.5rem] flex-1 text-[10px] text-muted">
-                  Damage
-                  <input
-                    className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
-                    value={entry.damage?.expr ?? ''}
-                    placeholder="2d6+3 or 8"
-                    onChange={(e) => patchDamage(index, { expr: e.target.value })}
-                  />
-                </label>
-                <label className="min-w-[7.5rem] flex-1 text-[10px] text-muted">
-                  Type
-                  <select
-                    className="field mt-0.5 w-full py-1 text-xs"
-                    value={entry.damage?.type || ''}
-                    onChange={(e) => patchDamage(index, { type: e.target.value })}
+              <div className="mb-1.5 space-y-1">
+                {damageRows(entry).map((part, row) => (
+                  <div
+                    key={`damage-${row}`}
+                    className="flex flex-wrap items-end gap-1.5"
                   >
-                    <option value="">—</option>
-                    {DAMAGE_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  title="Fill damage from the description’s Hit: line"
-                  onClick={() => {
-                    const detected = damageFieldsFromDesc(entry.desc);
-                    if (!detected) return;
-                    update(index, { damage: detected });
-                  }}
-                >
-                  From desc
-                </button>
+                    <label className="min-w-[6.5rem] flex-1 text-[10px] text-muted">
+                      {row === 0 ? 'Damage' : 'plus'}
+                      <input
+                        className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
+                        value={part.expr}
+                        placeholder={row === 0 ? '2d6+3 or 8' : '1d6'}
+                        onChange={(e) =>
+                          patchDamage(index, row, { expr: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="min-w-[7.5rem] flex-1 text-[10px] text-muted">
+                      Type
+                      <select
+                        className="field mt-0.5 w-full py-1 text-xs"
+                        value={part.type || ''}
+                        onChange={(e) =>
+                          patchDamage(index, row, { type: e.target.value })
+                        }
+                      >
+                        <option value="">—</option>
+                        {DAMAGE_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {row === 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          title="Add another damage die — rolled and resisted on its own"
+                          onClick={() => addDamageRow(index)}
+                        >
+                          + die
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          title="Fill damage from the description’s Hit: line"
+                          onClick={() => {
+                            const detected = damagePartsFromDesc(entry.desc);
+                            if (detected.length === 0) return;
+                            writeDamage(index, detected);
+                          }}
+                        >
+                          From desc
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        aria-label={`Remove damage ${row + 1}`}
+                        onClick={() => removeDamageRow(index, row)}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {entryDamageParts(entry).length > 1 && (
+                  <p className="text-[10px] text-muted">
+                    Each die rolls separately and lands with its own type.
+                  </p>
+                )}
               </div>
             )}
 

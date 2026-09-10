@@ -5,7 +5,7 @@ import {
   formatModifier,
   proficiencyBonusFromCr,
 } from '../../lib/statblock-derived';
-import { formatEntryDamage } from '../../lib/damage-types';
+import { entryDamageParts, formatDamageParts } from '../../lib/damage-types';
 import { formatEntryOffense } from '../../lib/parse';
 import {
   actionCostGlyph,
@@ -55,11 +55,13 @@ function EntryBlock({
               : cost;
           const tooExpensive =
             live != null && showActionCosts && spend > 0 && live.remaining < spend;
-          const dmg = formatEntryDamage(e.damage);
+          const damageParts = entryDamageParts(e);
+          const dmg = formatDamageParts(damageParts);
           const offense = formatEntryOffense(e);
           const req = e.requirements?.trim();
           const time = e.duration?.trim();
-          const canUse = live != null && (showActionCosts || Boolean(e.damage));
+          const canUse =
+            live != null && (showActionCosts || damageParts.length > 0);
 
           return (
             <li key={`${title}-${e.name}`} className="flex gap-2">

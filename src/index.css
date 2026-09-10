@@ -969,7 +969,8 @@ html[data-theme='night'] {
   }
 
   .row-dead {
-    opacity: 0.5;
+    opacity: 0.55;
+    filter: grayscale(0.85);
   }
 
   /*

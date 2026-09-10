@@ -60,7 +60,15 @@ export function ActionStrip({
               time ? `\nTime: ${time}` : ''
             }${req ? `\nRequirements: ${req}` : ''} — ${
               showCosts ? actionCostLabel(cost) : 'Use'
-            }${a.desc ? `\n${a.desc}` : ''}`}
+            }\n${
+              // Says what a click now does, since an attack bonus means the
+              // click resolves the attack rather than just dealing damage.
+              a.attackBonus != null
+                ? `Click: roll ${offense} against each target's AC, then damage the hits`
+                : dmg
+                  ? 'Click: roll damage on every selected target'
+                  : 'Click: log the action'
+            }${a.desc ? `\n\n${a.desc}` : ''}`}
             onClick={() => onUse(a, cost)}
           >
             {showCosts && (

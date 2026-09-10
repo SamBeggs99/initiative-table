@@ -93,6 +93,10 @@ export const DAMAGE_TYPE_FLASH: Record<DamageType, string> = {
 export function damageTypeFlashColor(type?: string): string {
   const key = type?.trim().toLowerCase();
   if (key === 'heal') return 'var(--color-heal)';
+  // Attack outcomes, not damage types: a miss should read as nothing landing,
+  // a crit as louder than an ordinary hit.
+  if (key === 'miss') return 'var(--color-muted)';
+  if (key === 'crit') return 'var(--color-amber)';
   if (key && key in DAMAGE_TYPE_FLASH) {
     return DAMAGE_TYPE_FLASH[key as DamageType];
   }

@@ -20,6 +20,7 @@ import type { ActionCost } from '../../lib/pf2e-actions';
 import { DamageTypeSelect } from './DamageTypeSelect';
 import { PortraitThumb } from '../ui/Portrait';
 import { damageTypeFlashColor } from '../../lib/damage-types';
+import type { PortraitRef } from '../../lib/portrait';
 
 const ROLE_RAIL: Record<CombatantRole, string> = {
   pc: 'bg-heal',
@@ -31,7 +32,7 @@ const ROLE_RAIL: Record<CombatantRole, string> = {
 export function CombatantRow({
   combatant,
   hue,
-  portraitUrl,
+  portrait,
   active,
   selected,
   focused,
@@ -60,7 +61,8 @@ export function CombatantRow({
   /** Identity colour for this character's class or enemy group. */
   hue?: string;
   /** Optional portrait resolved from party / NPC / stat block. */
-  portraitUrl?: string;
+  /** Portrait reference (store id, or a legacy data URL). */
+  portrait?: PortraitRef;
   active: boolean;
   selected: boolean;
   focused: boolean;
@@ -205,7 +207,8 @@ export function CombatantRow({
             {hue && <span className="identity-swatch" aria-hidden />}
 
             <PortraitThumb
-              src={portraitUrl}
+              portraitId={portrait?.portraitId}
+              src={portrait?.portraitDataUrl}
               alt=""
               size={sharedScreen ? 'sm' : 'xs'}
             />

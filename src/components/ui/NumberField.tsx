@@ -38,8 +38,8 @@ const PARTIAL = /^[+-]?\d*\.?\d*$/;
  * original bug looked like from the user's side. '0' on its own and '0.5' are
  * left alone; there is no integer stat where a leading zero means anything.
  */
-function stripLeadingZeros(raw: string): string {
-  return raw.replace(/^([+-]?)0+(?=d)/, '$1');
+export function stripLeadingZeros(raw: string): string {
+  return raw.replace(/^([+-]?)0+(?=\d)/, '$1');
 }
 
 /** '' and a lone sign are legal *while typing*. */

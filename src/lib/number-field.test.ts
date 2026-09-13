@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { stripLeadingZeros } from '../components/ui/NumberField';
 
 /**
- * The leading-zero rule, mirrored here as a pure function.
+ * The leading-zero rule, imported from the component rather than mirrored here.
  *
- * The bug: `<input type="number">` under React decides whether to rewrite the
- * DOM with **loose** equality — `node.value != value`. `"01" == 1` is true, so
- * a field sitting at 0 with a digit typed after it reads `01` forever while
- * state says `1`. The fix moved every numeric input to `type="text"` with the
- * text held locally; this is the normalisation that runs as you type.
+ * An earlier version of this file kept its own copy of the function. The copy
+ * was correct, the shipped one had a mangled escape (`(?=d)` instead of
+ * `(?=\d)`), and the suite passed while the app did nothing — a test that
+ * re-implements its subject only ever proves the test.
+ *
+ * The bug being guarded: `<input type="number">` under React decides whether to
+ * rewrite the DOM with **loose** equality — `node.value != value`. `"01" == 1`
+ * is true, so a field sitting at 0 with a digit typed after it reads `01`
+ * forever while state says `1`. Every numeric input now runs its text through
+ * this on the way in.
  */
-function stripLeadingZeros(raw: string): string {
-  return raw.replace(/^([+-]?)0+(?=\d)/, '$1');
-}
-
 describe('stripLeadingZeros', () => {
   it('removes the zero once a real digit lands behind it', () => {
     // The reported case, exactly.
@@ -54,5 +56,11 @@ describe('stripLeadingZeros', () => {
     for (const raw of ['01', '007', '0', '00', '-01', '0.5', '10', '-0.25']) {
       expect(Number(stripLeadingZeros(raw))).toBe(Number(raw));
     }
+  });
+
+  // Guards the exact failure above: a regex that matches nothing still passes
+  // every "leaves it untouched" case, so assert it actually changes something.
+  it('is actually doing work', () => {
+    expect(stripLeadingZeros('01')).not.toBe('01');
   });
 });

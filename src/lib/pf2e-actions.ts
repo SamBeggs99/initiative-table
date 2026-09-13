@@ -18,6 +18,41 @@ export function actionCostLabel(cost: ActionCost | undefined): string {
   return '1 action';
 }
 
+/** How a bare action cost is written in a spell's cast-time line. */
+export function castTimeLabel(cost: ActionCost): string {
+  if (cost === 'reaction') return 'reaction';
+  if (cost === 'free') return 'free action';
+  if (cost === 1) return '1 action';
+  return `${cost} actions`;
+}
+
+/**
+ * Every spelling of a bare action cost the app writes or imports.
+ *
+ * A PF2e cast time is usually just the action cost restated in words, but it is
+ * also where a ritual's "1 minute" or a spell's "1 hour" lives. Recognising the
+ * restatements lets the editor keep the two in step when the cost changes
+ * without trampling a cast time the DM actually wrote.
+ */
+const PLAIN_CAST_TIMES = new Set([
+  '1 action',
+  'one action',
+  '2 actions',
+  'two actions',
+  '3 actions',
+  'three actions',
+  'reaction',
+  '1 reaction',
+  'free',
+  'free action',
+  '1 free action',
+]);
+
+export function isPlainActionCastTime(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t === '' || PLAIN_CAST_TIMES.has(t);
+}
+
 export function resolveActionCost(
   costs: Record<string, ActionCost> | undefined,
   actionName: string,

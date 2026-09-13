@@ -21,6 +21,11 @@ import {
   beginCombat,
   turnIndexAfterRemove,
 } from './lib/turn';
+import {
+  initiativeForSlot,
+  initiativeInsertIndex,
+  moveInOrder,
+} from './lib/turn-order';
 import { getSystemAdapter } from './systems';
 import type {
   ActiveCondition,
@@ -515,6 +520,11 @@ export interface AppState {
   startCombat: (initiatives?: Record<string, number>) => void;
   endCombat: () => void;
   sortByInitiative: () => void;
+  /**
+   * Hand-place a combatant at a slot in the turn order, renumbering its
+   * initiative only if the printed number would otherwise read as out of order.
+   */
+  moveCombatant: (id: string, toIndex: number) => void;
   /** Mark one live-fight loot line awarded and pin it to session notes. */
   awardLoot: (id: string) => void;
   /** Award every pending loot line on the live fight. */
@@ -1026,10 +1036,25 @@ export const useStore = create<AppState>()(
             const incoming = c.started
               ? hydrated
               : { ...hydrated, initiative: null };
-            const combatants = c.started
-              ? sortCombatants([...c.combatants, incoming])
-              : [...c.combatants, incoming];
-            return { ...c, combatants };
+            if (!c.started) {
+              return { ...c, combatants: [...c.combatants, incoming] };
+            }
+            /*
+             * Mid-fight arrivals slot into place; they do not re-sort the tape.
+             * A DM who has hand-ordered a round — a readied action dropped to
+             * the bottom, a summon placed on its summoner's count — should be
+             * able to add one reinforcement without those choices rearranging
+             * themselves underneath. Re-sorting stays available under More.
+             */
+            const at = initiativeInsertIndex(c.combatants, incoming.initiative);
+            const combatants = [
+              ...c.combatants.slice(0, at),
+              incoming,
+              ...c.combatants.slice(at),
+            ];
+            // An arrival above the current actor must not hand the turn on.
+            const turnIndex = at <= c.turnIndex ? c.turnIndex + 1 : c.turnIndex;
+            return { ...c, combatants, turnIndex };
           }),
         }));
         get().pushLog(`Added ${combatant.name}`, 'system');
@@ -1575,6 +1600,44 @@ export const useStore = create<AppState>()(
           }),
         }));
         get().pushLog('Awarded loot cleared from the tracker', 'system');
+      },
+
+      moveCombatant: (id, toIndex) => {
+        const { activeCampaignId, getActiveCombat } = get();
+        if (!activeCampaignId) return;
+        const combat = getActiveCombat();
+        const from = combat.combatants.findIndex((c) => c.id === id);
+        if (from < 0) return;
+        const to = Math.max(0, Math.min(combat.combatants.length - 1, toIndex));
+        if (to === from) return;
+
+        const activeId = combat.combatants[combat.turnIndex]?.id;
+        const moved = moveInOrder(combat.combatants, from, to);
+        const target = moved[to]!;
+        const initiative = combat.started
+          ? initiativeForSlot(
+              moved[to - 1]?.initiative ?? null,
+              moved[to + 1]?.initiative ?? null,
+              target.initiative,
+            )
+          : target.initiative;
+        const combatants = moved.map((c, i) =>
+          i === to ? { ...c, initiative } : c,
+        );
+        // Follow the actor, not the slot: reordering must never pass the turn.
+        const turnIndex = activeId
+          ? Math.max(0, combatants.findIndex((c) => c.id === activeId))
+          : combat.turnIndex;
+
+        set((s) => ({
+          combatByCampaign: patchActiveCombat(s.combatByCampaign, activeCampaignId, {
+            combatants,
+            turnIndex,
+          }),
+        }));
+        const renumbered =
+          initiative !== target.initiative ? ` — initiative ${initiative}` : '';
+        get().pushLog(`${target.name} moved to slot ${to + 1}${renumbered}`, 'system');
       },
 
       sortByInitiative: () => {

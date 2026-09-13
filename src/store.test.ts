@@ -342,3 +342,128 @@ describe('the clock walks past the dead', () => {
     expect(visited).toContain('Ogre');
   });
 });
+
+describe('hand-sorting the turn order', () => {
+  /** Start a fight with explicit, descending initiative so slots are legible. */
+  function tapeOf(entries: [name: string, init: number][]) {
+    seatCampaign();
+    const ids = entries.map(([name]) => addMonster(name, 10));
+    const map: Record<string, number> = {};
+    ids.forEach((id, i) => {
+      map[id] = entries[i]![1];
+    });
+    useStore.getState().startCombat(map);
+    return ids;
+  }
+
+  const names = () => combat().combatants.map((c) => c.name);
+
+  it('moves a combatant to the slot it was dropped on', () => {
+    const [, , goblin] = tapeOf([
+      ['Ogre', 20],
+      ['Wolf', 15],
+      ['Goblin', 5],
+    ]);
+    useStore.getState().moveCombatant(goblin!, 1);
+    expect(names()).toEqual(['Ogre', 'Goblin', 'Wolf']);
+    // Renumbered only because 5 would have read out of order between 20 and 15,
+    // and to a whole number because one fits the gap.
+    expect(byName('Goblin')!.initiative).toBe(18);
+  });
+
+  it('leaves an initiative that already reads in order alone', () => {
+    const [, , , scout] = tapeOf([
+      ['Ogre', 20],
+      ['Wolf', 15],
+      ['Boar', 10],
+      ['Scout', 12],
+    ]);
+    // 12 already belongs between 15 and 10, so the pill must not churn.
+    useStore.getState().moveCombatant(scout!, 2);
+    expect(names()).toEqual(['Ogre', 'Wolf', 'Scout', 'Boar']);
+    expect(byName('Scout')!.initiative).toBe(12);
+  });
+
+  it('never hands the turn on — the clock follows the actor', () => {
+    const [, , goblin] = tapeOf([
+      ['Ogre', 20],
+      ['Wolf', 15],
+      ['Goblin', 5],
+    ]);
+    useStore.getState().nextTurn();
+    expect(combat().combatants[combat().turnIndex]!.name).toBe('Wolf');
+
+    useStore.getState().moveCombatant(goblin!, 0);
+    expect(names()).toEqual(['Goblin', 'Ogre', 'Wolf']);
+    expect(combat().combatants[combat().turnIndex]!.name).toBe('Wolf');
+  });
+
+  it('ignores a move that goes nowhere or names a stranger', () => {
+    const [ogre] = tapeOf([
+      ['Ogre', 20],
+      ['Wolf', 15],
+    ]);
+    const before = combat().combatants;
+    useStore.getState().moveCombatant(ogre!, 0);
+    useStore.getState().moveCombatant('not-a-real-id', 1);
+    expect(combat().combatants).toBe(before);
+  });
+});
+
+describe('a mid-fight arrival', () => {
+  it('slots in by initiative without re-sorting a hand-ordered tape', () => {
+    seatCampaign();
+    const ogre = addMonster('Ogre', 20);
+    const wolf = addMonster('Wolf', 12);
+    const boar = addMonster('Boar', 12);
+    useStore.getState().startCombat({ [ogre]: 20, [wolf]: 12, [boar]: 12 });
+
+    // Hand-place the boar above the wolf — they tie, so only row order says so.
+    useStore.getState().moveCombatant(boar, 1);
+    expect(combat().combatants.map((c) => c.name)).toEqual([
+      'Ogre',
+      'Boar',
+      'Wolf',
+    ]);
+
+    const scout = createCombatant({
+      name: 'Scout',
+      kind: 'npc',
+      hp: 8,
+      maxHp: 8,
+      ac: 13,
+      initiative: 12,
+    });
+    useStore.getState().addCombatant(scout);
+
+    // The arrival goes last among its equals; the hand-placed pair is untouched.
+    expect(combat().combatants.map((c) => c.name)).toEqual([
+      'Ogre',
+      'Boar',
+      'Wolf',
+      'Scout',
+    ]);
+  });
+
+  it('does not pass the turn when it lands above the current actor', () => {
+    seatCampaign();
+    const ogre = addMonster('Ogre', 20);
+    const wolf = addMonster('Wolf', 5);
+    useStore.getState().startCombat({ [ogre]: 20, [wolf]: 5 });
+    useStore.getState().nextTurn();
+    expect(combat().combatants[combat().turnIndex]!.name).toBe('Wolf');
+
+    useStore.getState().addCombatant(
+      createCombatant({
+        name: 'Hawk',
+        kind: 'npc',
+        hp: 4,
+        maxHp: 4,
+        ac: 13,
+        initiative: 25,
+      }),
+    );
+    expect(combat().combatants[0]!.name).toBe('Hawk');
+    expect(combat().combatants[combat().turnIndex]!.name).toBe('Wolf');
+  });
+});

@@ -1,4 +1,12 @@
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react';
 import { getSystemAdapter } from '../../systems';
 import {
   selectActiveCampaign,
@@ -8,13 +16,8 @@ import {
 import { assignIdentityHues, hueHex } from '../../lib/identity';
 import { downloadText, sessionLogToMarkdown } from '../../lib/session-log';
 import { pendingLoot } from '../../lib/loot';
-import {
-  formatAttackLog,
-  outcomeLabel,
-  resolveAttack,
-  type AttackMode,
-} from '../../lib/attack';
 import { entryDamageParts, formatDamageParts } from '../../lib/damage-types';
+import { hitEffect } from '../../lib/hit-effects';
 import { resolveHpField, applyTempHp } from '../../lib/combat';
 import { resolveCombatantPortrait } from '../../lib/portrait';
 import { spendActionsRemaining, type ActionCost } from '../../lib/pf2e-actions';
@@ -29,6 +32,7 @@ import { CombatLootPanel } from './CombatLootPanel';
 import { ConcentrationBanner } from './ConcentrationBanner';
 import { DamageTypeSelect } from './DamageTypeSelect';
 import { InitiativePrompt } from './InitiativePrompt';
+import { useRowDrag } from './useRowDrag';
 import { ConditionDialog } from '../ui/AskDialog';
 import { Modal } from '../ui/Modal';
 
@@ -40,6 +44,7 @@ const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: 'Space / →', action: 'Next turn' },
   { keys: '←', action: 'Previous turn' },
   { keys: 'j / k', action: 'Move keyboard focus (does not check boxes)' },
+  { keys: 'Alt+↑ / Alt+↓', action: 'Move the focused combatant up or down the order' },
   { keys: 'i / Enter', action: 'Open stats for focused combatant' },
   { keys: 'd / h', action: 'Focus HP field (selection bar if boxed)' },
   { keys: 's', action: 'Bulk save (when selected)' },
@@ -50,89 +55,6 @@ const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '?', action: 'This cheat sheet' },
 ];
 
-const ATTACK_HELP: { keys: string; action: string }[] = [
-  {
-    keys: 'Click an action',
-    action:
-      'Rolls to hit against each selected target’s AC, then applies damage to the hits only',
-  },
-  {
-    keys: 'Adv / Dis',
-    action:
-      'Header toggles: roll twice and take the higher or lower. Neither on = a straight roll',
-  },
-  {
-    keys: 'No +N on the chip',
-    action: 'No attack roll (save-based or automatic) — damage lands on everyone selected',
-  },
-  {
-    keys: 'Crit',
-    action: '5e doubles the dice, not the modifier. PF2e doubles the total (AC+10 or nat 20)',
-  },
-];
-
-/**
- * How the next action-chip attack rolls.
- *
- * Two labelled toggles rather than a three-way `− = +`, which was unreadable
- * without a tooltip. It also models what a DM actually thinks: nobody decides
- * to "set roll mode to straight" — they decide *this attack has advantage*, and
- * a normal roll is simply neither being on. So "off" is the pair unpressed, and
- * there is no third button for the default.
- *
- * Sticky, not one-shot: a whole party prone means advantage stays on for the
- * round, and the header is where you can see that it is.
- */
-function AttackModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: AttackMode;
-  onChange: (m: AttackMode) => void;
-}) {
-  const toggle = (want: Exclude<AttackMode, 'flat'>) =>
-    onChange(mode === want ? 'flat' : want);
-
-  return (
-    <div
-      className="flex items-center gap-1"
-      role="group"
-      aria-label="Attack roll modifier"
-    >
-      <span
-        className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted sm:inline"
-        aria-hidden
-      >
-        Roll
-      </span>
-      {(
-        [
-          {
-            id: 'adv' as const,
-            label: 'Adv',
-            title: 'Attacks from an action chip roll twice and take the higher',
-          },
-          {
-            id: 'dis' as const,
-            label: 'Dis',
-            title: 'Attacks from an action chip roll twice and take the lower',
-          },
-        ] satisfies { id: Exclude<AttackMode, 'flat'>; label: string; title: string }[]
-      ).map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          aria-pressed={mode === o.id}
-          title={o.title}
-          className={`btn btn-sm ${mode === o.id ? 'btn-on' : 'btn-ghost'}`}
-          onClick={() => toggle(o.id)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function InitiativeTracker({
   onFocusSearch,
@@ -157,9 +79,9 @@ export function InitiativeTracker({
   const nextTurn = useStore((s) => s.nextTurn);
   const prevTurn = useStore((s) => s.prevTurn);
   const sortByInitiative = useStore((s) => s.sortByInitiative);
+  const moveCombatant = useStore((s) => s.moveCombatant);
   const updateCombatant = useStore((s) => s.updateCombatant);
   const applyDamage = useStore((s) => s.applyDamage);
-  const applyDamageParts = useStore((s) => s.applyDamageParts);
   const applyHealing = useStore((s) => s.applyHealing);
   const setTempHp = useStore((s) => s.setTempHp);
   const removeCombatant = useStore((s) => s.removeCombatant);
@@ -183,8 +105,6 @@ export function InitiativeTracker({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDmg, setBulkDmg] = useState('');
   const [damageType, setDamageType] = useState('');
-  /** Advantage state for action-chip attack rolls. Sticky until changed. */
-  const [attackMode, setAttackMode] = useState<AttackMode>('flat');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -209,6 +129,18 @@ export function InitiativeTracker({
   const moreRef = useRef<HTMLDivElement>(null);
   const [markerTop, setMarkerTop] = useState(0);
   const prevTurnIndex = useRef(combat.turnIndex);
+
+  const {
+    drag,
+    begin: beginDrag,
+    move: moveDrag,
+    drop: dropDrag,
+    cancel: cancelDrag,
+    rowStyle,
+  } = useRowDrag((from, to) => {
+    const moving = combat.combatants[from];
+    if (moving) moveCombatant(moving.id, to);
+  });
 
   const runCombatExit = (action: 'end-fight' | 'clear' | 'end-session') => {
     if (action === 'end-fight') endCombat();
@@ -290,8 +222,16 @@ export function InitiativeTracker({
   }, [moreOpen]);
 
   const flashSeq = useRef(0);
+  /*
+   * Mount the effect layer for exactly as long as its own animation runs.
+   * This used to be a flat 560ms regardless of motion, which quietly truncated
+   * every effect longer than that — the unmount deleted the element mid-play,
+   * so a heal's slow drift and a death's fade never reached their last frames.
+   * The small tail past the spec is there so the final frame is on screen
+   * before the node goes away.
+   */
   const pulseRow = useCallback(
-    (id: string, type?: string, holdMs = 560) => {
+    (id: string, type?: string, holdMs = hitEffect(type).durationMs + 80) => {
       const n = ++flashSeq.current;
       setFlashes((prev) => {
         const next = new Map(prev);
@@ -328,10 +268,10 @@ export function InitiativeTracker({
       if (before == null || before <= 0 || c.hp > 0) continue;
       if (c.kind === 'lair') continue;
       if (c.kind === 'pc') {
-        pulseRow(c.id, 'downed', 900);
+        pulseRow(c.id, 'downed');
         pushLog(`${c.name} is down — death saves begin`, 'damage');
       } else {
-        pulseRow(c.id, 'slain', 980);
+        pulseRow(c.id, 'slain');
         pushLog(`${c.name} is down`, 'system');
       }
     }
@@ -410,95 +350,34 @@ export function InitiativeTracker({
         }
       }
 
-      const parts = entryDamageParts(entry);
-      if (parts.length === 0) {
-        pushLog(`${actor.name} uses ${entry.name}`, 'info');
-        return;
-      }
-
-      let targetIds = [...selectedIds].filter((id) => id !== actorId);
-      if (targetIds.length === 0 && focusedId && focusedId !== actorId) {
-        targetIds = [focusedId];
-      }
-
-      const targets = targetIds
-        .map((id) => combat.combatants.find((c) => c.id === id))
-        .filter((c): c is (typeof combat.combatants)[number] => Boolean(c))
-        .map((c) => ({ id: c.id, name: c.name, ac: c.ac }));
-
-      if (targets.length === 0) {
-        const preview = formatDamageParts(parts);
-        pushLog(
-          `${actor.name} ${entry.name}: no target selected (${preview ?? 'no damage'})`,
-          'info',
-        );
-        pushToast(`${entry.name} — select or focus a target`);
-        return;
-      }
-
       /*
-       * Roll to hit against each target's AC, then apply damage only where it
-       * landed. Every input was already in the store — the action's
-       * `attackBonus` and the target's `ac` — and until now the app rolled the
-       * damage and left the DM to decide the hit in their head.
+       * The chip spends the action and writes the line; it does not roll.
        *
-       * An action with no printed attack bonus (a save-based AoE) still applies
-       * to everyone selected, which is the previous behaviour.
+       * The app used to roll to hit against each target's AC and apply the
+       * damage it rolled. That is a fine trick and the wrong one for this
+       * table: a DM who rolls their own dice wants the app to remember the
+       * bookkeeping — whose turn, how many actions left, what the printed
+       * damage was — and wants the outcome to be theirs. So the log carries
+       * the attack bonus and the damage expression for reference, and the
+       * number lands via the row's HP field.
        */
-      let resolution;
-      try {
-        resolution = resolveAttack({
-          actorName: actor.name,
-          actionName: entry.name,
-          attackBonus: entry.attackBonus,
-          parts,
-          system: form.showPf2eBlock ? 'pf2e' : 'dnd5e',
-          mode: attackMode,
-          targets,
-        });
-      } catch {
-        pushToast(
-          `Could not roll damage “${parts.map((p) => p.expr).join(' plus ')}”`,
-        );
-        return;
-      }
-
-      for (const t of resolution.targets) {
-        if (t.damage.length === 0) {
-          pulseRow(t.combatantId, 'miss');
-          continue;
-        }
-        applyDamageParts(
-          t.combatantId,
-          t.damage.map((d) => ({ amount: d.amount, type: d.type })),
-        );
-        pulseRow(
-          t.combatantId,
-          t.attack.outcome === 'crit' ? 'crit' : t.damage[0]!.type,
-        );
-      }
-
-      const anyHit = resolution.targets.some((t) => t.damage.length > 0);
-      pushLog(formatAttackLog(resolution), anyHit ? 'damage' : 'info');
-
-      if (resolution.rolled) {
-        const summary = resolution.targets
-          .map((t) => `${t.name} ${outcomeLabel(t.attack.outcome)}`)
-          .join(', ');
-        pushToast(`${entry.name}: ${summary}`);
-      }
+      const offense =
+        entry.attackBonus != null
+          ? ` ${entry.attackBonus >= 0 ? '+' : ''}${entry.attackBonus}`
+          : '';
+      const damageLine = formatDamageParts(entryDamageParts(entry));
+      pushLog(
+        `${actor.name} uses ${entry.name}${offense}${
+          damageLine ? ` — ${damageLine}` : ''
+        }`,
+        'info',
+      );
     },
     [
       combat.combatants,
       form.showPf2eBlock,
-      selectedIds,
-      focusedId,
-      attackMode,
       updateCombatant,
       pushLog,
-      pushToast,
-      applyDamageParts,
-      pulseRow,
     ],
   );
 
@@ -546,6 +425,23 @@ export function InitiativeTracker({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undoLast();
+        return;
+      }
+
+      /*
+       * The keyboard route to the same reorder as the grip. Alt-modified so it
+       * cannot be confused with anything a focused control wants, and handled
+       * above the control guard so it works wherever focus happens to be.
+       */
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !sharedScreen) {
+        e.preventDefault();
+        if (!focusedId) return;
+        const at = combat.combatants.findIndex((c) => c.id === focusedId);
+        if (at < 0) return;
+        const to = e.key === 'ArrowUp' ? at - 1 : at + 1;
+        if (to < 0 || to >= combat.combatants.length) return;
+        moveCombatant(focusedId, to);
+        setFocusIndex(to);
         return;
       }
 
@@ -607,7 +503,8 @@ export function InitiativeTracker({
     selectedIds.size,
     onFocusSearch,
     onOpenBestiary,
-    combat.combatants.length,
+    combat.combatants,
+    moveCombatant,
     sharedScreen,
     pushToast,
     initiativePromptOpen,
@@ -620,6 +517,28 @@ export function InitiativeTracker({
   const promptCondition = (id: string) => {
     setConditionForId(id);
   };
+
+  /**
+   * Pointer props for one row's grip. The grip captures the pointer, so every
+   * move and the release come back to it rather than to whatever the cursor
+   * happens to be over — which is what lets the carried row travel the whole
+   * list without the drag being dropped halfway.
+   */
+  const gripProps = (index: number) => ({
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      // Left button / touch / pen only: a right-click is not a grab.
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rows = combat.combatants
+        .map((row) => rowRefs.current.get(row.id))
+        .filter((el): el is HTMLDivElement => Boolean(el));
+      beginDrag(e, index, rows, listRef.current);
+    },
+    onPointerMove: moveDrag,
+    onPointerUp: dropDrag,
+    onPointerCancel: cancelDrag,
+  });
 
   const exportLog = () => {
     const md = sessionLogToMarkdown(log, {
@@ -702,9 +621,6 @@ export function InitiativeTracker({
             >
               Library
             </button>
-          )}
-          {!sharedScreen && (
-            <AttackModeToggle mode={attackMode} onChange={setAttackMode} />
           )}
           <button
             type="button"
@@ -932,9 +848,16 @@ export function InitiativeTracker({
                 if (el) rowRefs.current.set(c.id, el);
                 else rowRefs.current.delete(c.id);
               }}
+              className={`row-slot ${
+                drag.from === index ? 'row-slot-carried' : ''
+              }`}
+              style={rowStyle(index)}
             >
               <CombatantRow
                 combatant={c}
+                reorderable={!sharedScreen && combat.combatants.length > 1}
+                dragging={drag.from === index}
+                gripProps={gripProps(index)}
                 hue={hueHex(identityHues.get(c.id))}
                 portrait={resolveCombatantPortrait(c, campaign)}
                 active={combat.started && index === combat.turnIndex}
@@ -1180,15 +1103,30 @@ export function InitiativeTracker({
               <HpFieldLegend />
               <section>
                 <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  Attacks
+                  Turn order
                 </h3>
                 <ul className="mb-4 space-y-1.5 text-sm">
-                  {ATTACK_HELP.map((s) => (
-                    <li key={s.keys} className="flex justify-between gap-4">
-                      <kbd className="chip shrink-0">{s.keys}</kbd>
-                      <span className="text-right text-muted">{s.action}</span>
-                    </li>
-                  ))}
+                  <li className="flex justify-between gap-4">
+                    <kbd className="chip shrink-0">Drag the grip</kbd>
+                    <span className="text-right text-muted">
+                      Hand-place a combatant. The initiative number only changes if
+                      it would otherwise read out of order
+                    </span>
+                  </li>
+                  <li className="flex justify-between gap-4">
+                    <kbd className="chip shrink-0">Adding mid-fight</kbd>
+                    <span className="text-right text-muted">
+                      Slots in by initiative without re-sorting the rest. More ▾ →
+                      Sort re-derives the whole order from the numbers
+                    </span>
+                  </li>
+                  <li className="flex justify-between gap-4">
+                    <kbd className="chip shrink-0">Click an action</kbd>
+                    <span className="text-right text-muted">
+                      Spends the action and logs its attack bonus and damage. You
+                      roll; the result goes in the HP field
+                    </span>
+                  </li>
                 </ul>
                 <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
                   Keys

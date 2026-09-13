@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { slugifyName } from '../../lib/bestiary/ids';
 import { deleteHomebrewSpell, saveHomebrewSpell } from '../../lib/spells';
+import {
+  actionCostGlyph,
+  actionCostLabel,
+  castTimeLabel,
+  isPlainActionCastTime,
+  type ActionCost,
+} from '../../lib/pf2e-actions';
 import type { Spell, System } from '../../types';
 import { ConfirmDialog } from '../ui/AskDialog';
 import { SpellPreview } from './SpellPreview';
+
+/** The five casts PF2e recognises, in the order the books print them. */
+const ACTION_COSTS: ActionCost[] = [1, 2, 3, 'reaction', 'free'];
 
 export function SpellEditor({
   system,
@@ -49,6 +59,28 @@ export function SpellEditor({
 
   const patch = (partial: Partial<Spell>) => {
     setDraft((d) => ({ ...d, ...partial, updatedAt: Date.now() }));
+  };
+
+  /**
+   * Patch the PF2e block without losing the fields you are not editing.
+   *
+   * Every caller used to rebuild the whole object inline, which meant each one
+   * had to remember to carry `actions` across — and since nothing in the form
+   * ever set it, every edit quietly reset the cast to two actions.
+   */
+  const patchPf2e = (partial: Partial<NonNullable<Spell['pf2e']>>) => {
+    setDraft((d) => ({
+      ...d,
+      pf2e: {
+        traditions: d.pf2e?.traditions ?? d.classes,
+        traits: d.pf2e?.traits ?? [],
+        actions: d.pf2e?.actions ?? 2,
+        heighten: d.pf2e?.heighten,
+        damage: d.pf2e?.damage,
+        ...partial,
+      },
+      updatedAt: Date.now(),
+    }));
   };
 
   const save = async () => {
@@ -145,8 +177,47 @@ export function SpellEditor({
                 />
               </label>
             </div>
+            {system === 'pf2e' && (
+              <fieldset className="block text-xs text-muted">
+                <legend>Cast</legend>
+                <div
+                  className="mt-0.5 flex flex-wrap gap-1"
+                  role="radiogroup"
+                  aria-label="Action cost"
+                >
+                  {ACTION_COSTS.map((cost) => {
+                    const on = (draft.pf2e?.actions ?? 2) === cost;
+                    return (
+                      <button
+                        key={String(cost)}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        title={actionCostLabel(cost)}
+                        className={`pip font-mono-stats ${on ? 'pip-on' : ''}`}
+                        onClick={() => {
+                          patchPf2e({ actions: cost });
+                          // Keep the cast-time line in step, but never trample
+                          // a real one — a ritual's "1 minute" is not a glyph.
+                          if (isPlainActionCastTime(draft.castingTime)) {
+                            patch({ castingTime: castTimeLabel(cost) });
+                          }
+                        }}
+                      >
+                        <span className={on ? 'text-accent' : ''} aria-hidden>
+                          {actionCostGlyph(cost)}
+                        </span>
+                        <span className="ml-1 font-sans text-[10px]">
+                          {actionCostLabel(cost)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
             <label className="block text-xs text-muted">
-              Casting time
+              {system === 'pf2e' ? 'Cast time (rituals, long casts)' : 'Casting time'}
               <input
                 className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 text-text"
                 value={draft.castingTime}
@@ -193,19 +264,8 @@ export function SpellEditor({
                     .split(',')
                     .map((p) => p.trim())
                     .filter(Boolean);
-                  if (system === 'pf2e') {
-                    patch({
-                      classes: parts,
-                      pf2e: {
-                        traditions: parts,
-                        traits: draft.pf2e?.traits ?? [],
-                        actions: draft.pf2e?.actions ?? 2,
-                        heighten: draft.pf2e?.heighten,
-                      },
-                    });
-                  } else {
-                    patch({ classes: parts });
-                  }
+                  patch({ classes: parts });
+                  if (system === 'pf2e') patchPf2e({ traditions: parts });
                 }}
               />
             </label>
@@ -216,16 +276,11 @@ export function SpellEditor({
                   className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 text-text"
                   value={(draft.pf2e?.traits ?? []).join(', ')}
                   onChange={(e) =>
-                    patch({
-                      pf2e: {
-                        traditions: draft.pf2e?.traditions ?? [],
-                        traits: e.target.value
-                          .split(',')
-                          .map((p) => p.trim())
-                          .filter(Boolean),
-                        actions: draft.pf2e?.actions ?? 2,
-                        heighten: draft.pf2e?.heighten,
-                      },
+                    patchPf2e({
+                      traits: e.target.value
+                        .split(',')
+                        .map((p) => p.trim())
+                        .filter(Boolean),
                     })
                   }
                 />

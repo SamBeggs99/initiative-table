@@ -1058,6 +1058,72 @@ html[data-theme='night'] {
     filter: grayscale(0.85);
   }
 
+  /* ---------- Hand-sorting the turn order ---------- */
+
+  /*
+   * The grip is the only part of a row that starts a drag. Everything else in
+   * the row is a field or a button, and making the whole row draggable would
+   * cost you text selection in the HP input for a gesture you rarely want.
+   */
+  .row-grip {
+    cursor: grab;
+    user-select: none;
+    line-height: 1;
+    font-size: 0.85rem;
+    letter-spacing: -0.05em;
+    color: color-mix(in srgb, var(--color-muted) 75%, transparent);
+    transition: color 120ms ease;
+    /* Let a finger drag the row instead of scrolling the list under it. */
+    touch-action: none;
+  }
+
+  .row-grip:hover,
+  .row-dragging .row-grip {
+    color: var(--color-accent);
+  }
+
+  .row-grip:active {
+    cursor: grabbing;
+  }
+
+  /*
+   * Every row is its own transformable slot. The rows between the carried one
+   * and its target slide by exactly one row height to open the gap, and that
+   * moving gap *is* the drop indicator — no separate line to keep in sync with
+   * where the row will actually land.
+   */
+  .row-slot {
+    position: relative;
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /*
+   * The carried row tracks the pointer with no easing at all. Any transition
+   * here reads as lag between the cursor and the row, which is exactly the
+   * stiffness this replaced.
+   */
+  .row-slot-carried {
+    transition: none;
+    z-index: 20;
+  }
+
+  /* Picked up off the page: lifted, opaque, and clearly the thing in hand. */
+  .row-dragging {
+    cursor: grabbing;
+    border-radius: 4px;
+    background: var(--color-panel);
+    box-shadow:
+      0 10px 24px -6px rgba(0, 0, 0, 0.45),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* The gap still opens; it just arrives rather than slides. */
+    .row-slot {
+      transition: none;
+    }
+  }
+
   /*
    * Progressive disclosure: state is always visible, affordances appear on the
    * active row, on hover, or when anything inside the row has focus.
@@ -2048,7 +2114,8 @@ html[data-theme='night'] {
       ) !important;
       box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--fx) 80%, transparent);
       transform: none !important;
-      animation: fx-static-hold 900ms steps(1, end) forwards !important;
+      /* Matches the motion it stands in for, so the read lasts just as long. */
+      animation: fx-static-hold var(--fx-ms) steps(1, end) forwards !important;
     }
 
     @keyframes fx-static-hold {

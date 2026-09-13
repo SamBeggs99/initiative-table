@@ -1,4 +1,9 @@
-import { useState, type CSSProperties, type MouseEvent } from 'react';
+import {
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { HERO_POINT_SESSION_START } from '../../lib/party';
 import { useStore } from '../../store';
 import {
@@ -41,6 +46,9 @@ export function CombatantRow({
   hideHp,
   showInitiative = true,
   sharedScreen = false,
+  reorderable = false,
+  dragging = false,
+  gripProps,
   flash,
   turnPulse = false,
   damageInputRef,
@@ -72,6 +80,20 @@ export function CombatantRow({
   /** Initiative is collected at Start combat — hide the pill until then. */
   showInitiative?: boolean;
   sharedScreen?: boolean;
+  /** Show the drag grip that hand-sorts the turn order. */
+  reorderable?: boolean;
+  /** This row is the one currently being dragged. */
+  dragging?: boolean;
+  /**
+   * Pointer handlers that drive the reorder. They live on the grip alone, so
+   * the rest of the row keeps its ordinary text selection and click behaviour.
+   */
+  gripProps?: Partial<
+    Record<
+      'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel',
+      (e: ReactPointerEvent<HTMLElement>) => void
+    >
+  >;
   flash?: { type?: string; n: number };
   turnPulse?: boolean;
   damageInputRef?: (el: HTMLInputElement | null) => void;
@@ -127,7 +149,7 @@ export function CombatantRow({
         deadMonster ? 'row-dead line-through' : ''
       } ${downedPc ? 'row-downed' : ''} ${
         turnPulse && active ? 'row-turn-pulse' : ''
-      }`}
+      } ${dragging ? 'row-dragging' : ''}`}
       style={
         // The hit colour now lives on the effect layer itself (HitEffect sets
         // --fx), so the row no longer carries a --flash var for it.
@@ -143,6 +165,20 @@ export function CombatantRow({
           swallowed by the animation still running from the first. */}
       {flash && <HitEffect key={flash.n} type={flash.type} />}
       <div className="relative z-[2] flex items-start gap-2.5">
+        {reorderable && !sharedScreen && (
+          <span
+            // Stays visible while carried, so the grip does not vanish from
+            // under the cursor when the pointer leaves the row's own bounds.
+            className={`row-grip mt-1 ${dragging ? '' : 'row-affordance'}`}
+            title={`Drag to move ${combatant.name} in the turn order (Alt+↑ / Alt+↓ from the keyboard)`}
+            aria-hidden
+            {...gripProps}
+            onClick={(e) => e.stopPropagation()}
+          >
+            ⠿
+          </span>
+        )}
+
         {!sharedScreen && (
           <input
             type="checkbox"
@@ -343,14 +379,6 @@ export function CombatantRow({
                 onChange={onDamageTypeChange}
                 className="row-affordance w-[6.5rem]"
               />
-              <button
-                type="button"
-                className={`btn btn-sm ${dmg.trim() ? 'btn-heal' : 'btn-text'}`}
-                disabled={deadMonster || !dmg.trim()}
-                onClick={() => submitField(true)}
-              >
-                Heal
-              </button>
               <ConditionChips
                 conditions={combatant.conditions}
                 onRemove={onRemoveCondition}

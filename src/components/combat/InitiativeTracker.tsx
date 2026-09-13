@@ -1,4 +1,12 @@
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react';
 import { getSystemAdapter } from '../../systems';
 import {
   selectActiveCampaign,
@@ -24,6 +32,7 @@ import { CombatLootPanel } from './CombatLootPanel';
 import { ConcentrationBanner } from './ConcentrationBanner';
 import { DamageTypeSelect } from './DamageTypeSelect';
 import { InitiativePrompt } from './InitiativePrompt';
+import { useRowDrag } from './useRowDrag';
 import { ConditionDialog } from '../ui/AskDialog';
 import { Modal } from '../ui/Modal';
 
@@ -96,15 +105,6 @@ export function InitiativeTracker({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDmg, setBulkDmg] = useState('');
   const [damageType, setDamageType] = useState('');
-  /**
-   * Hand-sorting state. `grabbedId` is set by pressing a row's grip and is what
-   * arms `draggable` — the row is otherwise inert, so text selection in the HP
-   * field and the damage input keep working. `dragFrom` / `dragOver` drive the
-   * insertion line while a drag is in flight.
-   */
-  const [grabbedId, setGrabbedId] = useState<string | null>(null);
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -129,6 +129,18 @@ export function InitiativeTracker({
   const moreRef = useRef<HTMLDivElement>(null);
   const [markerTop, setMarkerTop] = useState(0);
   const prevTurnIndex = useRef(combat.turnIndex);
+
+  const {
+    drag,
+    begin: beginDrag,
+    move: moveDrag,
+    drop: dropDrag,
+    cancel: cancelDrag,
+    rowStyle,
+  } = useRowDrag((from, to) => {
+    const moving = combat.combatants[from];
+    if (moving) moveCombatant(moving.id, to);
+  });
 
   const runCombatExit = (action: 'end-fight' | 'clear' | 'end-session') => {
     if (action === 'end-fight') endCombat();
@@ -506,21 +518,27 @@ export function InitiativeTracker({
     setConditionForId(id);
   };
 
-  const endDrag = () => {
-    setGrabbedId(null);
-    setDragFrom(null);
-    setDragOver(null);
-  };
-
   /**
-   * Which edge of the hovered row gets the insertion line. Dragging upward, the
-   * row lands above the one under the cursor; downward, below it — so the line
-   * always sits where the row will actually come to rest.
+   * Pointer props for one row's grip. The grip captures the pointer, so every
+   * move and the release come back to it rather than to whatever the cursor
+   * happens to be over — which is what lets the carried row travel the whole
+   * list without the drag being dropped halfway.
    */
-  const dropLineClass = (index: number) => {
-    if (dragFrom == null || dragOver !== index || dragFrom === index) return '';
-    return dragFrom > index ? 'row-drop-above' : 'row-drop-below';
-  };
+  const gripProps = (index: number) => ({
+    onPointerDown: (e: PointerEvent<HTMLElement>) => {
+      // Left button / touch / pen only: a right-click is not a grab.
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rows = combat.combatants
+        .map((row) => rowRefs.current.get(row.id))
+        .filter((el): el is HTMLDivElement => Boolean(el));
+      beginDrag(e, index, rows, listRef.current);
+    },
+    onPointerMove: moveDrag,
+    onPointerUp: dropDrag,
+    onPointerCancel: cancelDrag,
+  });
 
   const exportLog = () => {
     const md = sessionLogToMarkdown(log, {
@@ -830,36 +848,16 @@ export function InitiativeTracker({
                 if (el) rowRefs.current.set(c.id, el);
                 else rowRefs.current.delete(c.id);
               }}
-              // Armed only while the grip is held, so the rest of the row keeps
-              // its ordinary text selection and click behaviour.
-              draggable={grabbedId === c.id}
-              className={dropLineClass(index)}
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', c.id);
-                setDragFrom(index);
-                setDragOver(index);
-              }}
-              onDragEnd={endDrag}
-              onDragOver={(e) => {
-                if (dragFrom == null) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (dragOver !== index) setDragOver(index);
-              }}
-              onDrop={(e) => {
-                if (dragFrom == null) return;
-                e.preventDefault();
-                const moving = combat.combatants[dragFrom];
-                endDrag();
-                if (moving) moveCombatant(moving.id, index);
-              }}
+              className={`row-slot ${
+                drag.from === index ? 'row-slot-carried' : ''
+              }`}
+              style={rowStyle(index)}
             >
               <CombatantRow
                 combatant={c}
                 reorderable={!sharedScreen && combat.combatants.length > 1}
-                dragging={dragFrom === index}
-                onGrabChange={(held) => setGrabbedId(held ? c.id : null)}
+                dragging={drag.from === index}
+                gripProps={gripProps(index)}
                 hue={hueHex(identityHues.get(c.id))}
                 portrait={resolveCombatantPortrait(c, campaign)}
                 active={combat.started && index === combat.turnIndex}

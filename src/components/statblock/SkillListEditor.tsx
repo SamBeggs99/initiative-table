@@ -7,6 +7,7 @@ import {
   skillsFromRows,
 } from '../../lib/statblock-skills';
 import type { System } from '../../types';
+import { NumberField } from '../ui/NumberField';
 
 export function SkillListEditor({
   system,
@@ -74,14 +75,12 @@ export function SkillListEditor({
             <span className="font-mono-stats w-8 shrink-0 text-right text-xs tabular-nums text-muted">
               {formatModifier(row.bonus)}
             </span>
-            <input
-              type="number"
+            <NumberField
               className="field w-16 py-1 font-mono-stats text-sm tabular-nums"
               value={row.bonus}
-              onChange={(e) => {
-                const bonus = Number(e.target.value) || 0;
-                emit(rows.map((r, i) => (i === index ? { ...r, bonus } : r)));
-              }}
+              onChange={(bonus) =>
+                emit(rows.map((r, i) => (i === index ? { ...r, bonus } : r)))
+              }
               aria-label={`${row.name || 'Skill'} bonus`}
             />
             <button

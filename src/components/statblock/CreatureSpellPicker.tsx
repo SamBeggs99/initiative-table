@@ -29,6 +29,7 @@ import {
 } from '../../lib/spells';
 import type { Ability, Spell, StatBlock, StatBlockSpellRef } from '../../types';
 import { LazyOverlay } from '../ui/LazyOverlay';
+import { NullableNumberField } from '../ui/NumberField';
 
 export function CreatureSpellPicker({
   block,
@@ -251,10 +252,15 @@ export function CreatureSpellPicker({
         </label>
         <label className="block text-xs text-muted">
           Spell DC
-          <input
-            type="number"
+          <NullableNumberField
             className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
-            value={block.spellcasting?.saveDc ?? ''}
+            // Blank falls back to the derived DC, so it must stay distinct
+            // from a typed 0.
+            value={
+              typeof block.spellcasting?.saveDc === 'number'
+                ? block.spellcasting.saveDc
+                : null
+            }
             placeholder={derivedDc != null ? String(derivedDc) : '—'}
             disabled={!ability}
             title={
@@ -262,18 +268,18 @@ export function CreatureSpellPicker({
                 ? 'Leave blank to use 8 + PB + ability (PF2e: 10 + expert + ability)'
                 : 'Pick an ability first'
             }
-            onChange={(e) => {
-              const raw = e.target.value;
-              patchCasting({ saveDc: raw === '' ? '' : Number(raw) });
-            }}
+            onChange={(n) => patchCasting({ saveDc: n ?? '' })}
           />
         </label>
         <label className="block text-xs text-muted">
           Attack
-          <input
-            type="number"
+          <NullableNumberField
             className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
-            value={block.spellcasting?.attackBonus ?? ''}
+            value={
+              typeof block.spellcasting?.attackBonus === 'number'
+                ? block.spellcasting.attackBonus
+                : null
+            }
             placeholder={derivedHit != null ? String(derivedHit) : '—'}
             disabled={!ability}
             title={
@@ -281,10 +287,7 @@ export function CreatureSpellPicker({
                 ? 'Leave blank to use PB + ability (PF2e: level + 4 + ability)'
                 : 'Pick an ability first'
             }
-            onChange={(e) => {
-              const raw = e.target.value;
-              patchCasting({ attackBonus: raw === '' ? '' : Number(raw) });
-            }}
+            onChange={(n) => patchCasting({ attackBonus: n ?? '' })}
           />
         </label>
       </div>

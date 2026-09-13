@@ -35,8 +35,26 @@ export function InitiativePrompt({
   const ready = map != null && rows.length > 0;
   const anyBusy = rows.some((row) => isBusy(row.key));
 
+  /**
+   * Keep the text tidy as it is typed.
+   *
+   * This field keeps its value as a *string*, because blank means "not rolled
+   * yet" rather than initiative 0 — so unlike the rest of the app's numeric
+   * inputs it is the state, not React's DOM diffing, that would otherwise hold
+   * on to a `01`. Empty and a lone `-` stay typable.
+   */
+  const tidyNumeric = (raw: string): string | null => {
+    if (!/^-?\d*$/.test(raw)) return null; // reject the keystroke outright
+    if (raw === '' || raw === '-') return raw;
+    const negative = raw.startsWith('-');
+    const digits = raw.replace(/^-?0+(?=\d)/, '').replace('-', '');
+    return (negative ? '-' : '') + digits;
+  };
+
   const setRow = (key: string, raw: string) => {
-    setValues((prev) => ({ ...prev, [key]: raw }));
+    const tidy = tidyNumeric(raw);
+    if (tidy == null) return;
+    setValues((prev) => ({ ...prev, [key]: tidy }));
   };
 
   const rollRow = (key: string, representative: Combatant, delay = 0) => {
@@ -119,7 +137,6 @@ export function InitiativePrompt({
               <div className="name-identity min-w-0 flex-1 truncate">{row.label}</div>
               <input
                 ref={index === 0 ? firstFieldRef : undefined}
-                type="number"
                 inputMode="numeric"
                 className={`field w-[4.5rem] text-center font-mono-stats tabular-nums ${
                   phase === 'glowing' ? 'field-landed' : ''

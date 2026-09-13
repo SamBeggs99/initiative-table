@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
+import { NullableNumberField } from './NumberField';
 
 export function PromptDialog({
   title,
@@ -194,13 +195,14 @@ export function ConditionDialog({
         </label>
         <label className="block text-xs text-muted">
           Expires in rounds (blank = none)
-          <input
-            type="number"
+          <NullableNumberField
             min={1}
             className="field mt-1 w-full"
-            value={rounds}
+            // Blank is meaningful here — a condition with no expiry — so this
+            // is nullable rather than defaulting to 0 rounds.
+            value={rounds === '' ? null : Number(rounds)}
             placeholder="e.g. 3"
-            onChange={(e) => setRounds(e.target.value)}
+            onChange={(n) => setRounds(n == null ? '' : String(n))}
           />
         </label>
       </div>

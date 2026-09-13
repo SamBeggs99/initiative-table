@@ -27,7 +27,16 @@ export function HeroPointPips({
       aria-label={`Hero points ${n} of ${HERO_POINT_MAX}`}
       onClick={(e) => e.stopPropagation()}
     >
-      <span className="text-[10px] uppercase tracking-wider text-condition">
+      {/*
+        The label is dropped in compact mode. On the party rail it was costing
+        five characters of width that the character's *name* needed, and the
+        pips are already labelled for assistive tech by the group above.
+      */}
+      <span
+        className={`text-[10px] uppercase tracking-wider text-condition ${
+          compact ? 'sr-only' : ''
+        }`}
+      >
         Hero
       </span>
       {Array.from({ length: HERO_POINT_MAX }, (_, i) => {

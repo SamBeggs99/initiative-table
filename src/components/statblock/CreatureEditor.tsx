@@ -34,6 +34,7 @@ import {
 } from './DefenseTraitChips';
 import { CreatureSpellPicker } from './CreatureSpellPicker';
 import { StatBlockPreview } from './StatBlockPreview';
+import { NumberField } from '../ui/NumberField';
 
 export type EditorMode = 'new' | 'clone' | 'import' | 'edit';
 
@@ -488,11 +489,10 @@ export function CreatureEditor({
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <label className="block text-xs text-muted">
                   AC
-                  <input
-                    type="number"
+                  <NumberField
                     className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                     value={draft.ac}
-                    onChange={(e) => patch({ ac: Number(e.target.value) || 0 })}
+                    onChange={(n) => patch({ ac: n })}
                   />
                 </label>
                 <label className="col-span-1 block text-xs text-muted sm:col-span-3">
@@ -516,11 +516,10 @@ export function CreatureEditor({
                 </label>
                 <label className="block text-xs text-muted">
                   HP avg
-                  <input
-                    type="number"
+                  <NumberField
                     className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                     value={draft.hpAvg}
-                    onChange={(e) => patch({ hpAvg: Number(e.target.value) || 0 })}
+                    onChange={(n) => patch({ hpAvg: n })}
                     title="Auto-fills from hit dice on blur; stays overridable"
                   />
                 </label>
@@ -591,15 +590,14 @@ export function CreatureEditor({
                   return (
                     <div key={ab} className="block text-xs text-muted">
                       <label htmlFor={id}>{ABILITY_LABELS[ab]}</label>
-                      <input
+                      <NumberField
                         id={id}
-                        type="number"
                         min={1}
                         max={30}
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.abilities[ab]}
-                        onChange={(e) =>
-                          patchAbility(ab, Number(e.target.value) || 0)
+                        onChange={(n) =>
+                          patchAbility(ab, n)
                         }
                       />
                       <span className="font-mono-stats text-[10px] tabular-nums text-muted">
@@ -654,11 +652,10 @@ export function CreatureEditor({
                   </label>
                   <label className="block text-xs text-muted">
                     Proficiency bonus
-                    <input
-                      type="number"
+                    <NumberField
                       className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                       value={pb}
-                      onChange={(e) => setPbOverride(Number(e.target.value) || 0)}
+                      onChange={(n) => setPbOverride(n)}
                       title="Auto from CR; overridable"
                     />
                   </label>
@@ -670,12 +667,11 @@ export function CreatureEditor({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <label className="block text-xs text-muted">
                       Level
-                      <input
-                        type="number"
+                      <NumberField
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.pf2e?.level ?? 0}
-                        onChange={(e) => {
-                          const level = Number(e.target.value) || 0;
+                        onChange={(n) => {
+                          const level = n;
                           patchPf2e({
                             level,
                             perception: draft.pf2e?.perception ?? 0,
@@ -691,11 +687,10 @@ export function CreatureEditor({
                     </label>
                     <label className="block text-xs text-muted">
                       Perception
-                      <input
-                        type="number"
+                      <NumberField
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.pf2e?.perception ?? 0}
-                        onChange={(e) =>
+                        onChange={(n) =>
                           patchPf2e({
                             ...(draft.pf2e ?? {
                               level: 0,
@@ -705,18 +700,17 @@ export function CreatureEditor({
                               traits: [],
                               actionCosts: {},
                             }),
-                            perception: Number(e.target.value) || 0,
+                            perception: n,
                           })
                         }
                       />
                     </label>
                     <label className="block text-xs text-muted">
                       Fortitude
-                      <input
-                        type="number"
+                      <NumberField
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.pf2e?.fortitude ?? 0}
-                        onChange={(e) =>
+                        onChange={(n) =>
                           patchPf2e({
                             ...(draft.pf2e ?? {
                               level: 0,
@@ -726,18 +720,17 @@ export function CreatureEditor({
                               traits: [],
                               actionCosts: {},
                             }),
-                            fortitude: Number(e.target.value) || 0,
+                            fortitude: n,
                           })
                         }
                       />
                     </label>
                     <label className="block text-xs text-muted">
                       Reflex
-                      <input
-                        type="number"
+                      <NumberField
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.pf2e?.reflex ?? 0}
-                        onChange={(e) =>
+                        onChange={(n) =>
                           patchPf2e({
                             ...(draft.pf2e ?? {
                               level: 0,
@@ -747,18 +740,17 @@ export function CreatureEditor({
                               traits: [],
                               actionCosts: {},
                             }),
-                            reflex: Number(e.target.value) || 0,
+                            reflex: n,
                           })
                         }
                       />
                     </label>
                     <label className="block text-xs text-muted">
                       Will
-                      <input
-                        type="number"
+                      <NumberField
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                         value={draft.pf2e?.will ?? 0}
-                        onChange={(e) =>
+                        onChange={(n) =>
                           patchPf2e({
                             ...(draft.pf2e ?? {
                               level: 0,
@@ -768,7 +760,7 @@ export function CreatureEditor({
                               traits: [],
                               actionCosts: {},
                             }),
-                            will: Number(e.target.value) || 0,
+                            will: n,
                           })
                         }
                       />

@@ -19,6 +19,7 @@ import { useStore } from '../store';
 import { ConfirmDialog, PromptDialog } from './ui/AskDialog';
 import type { EncounterLootLine, SavedEncounter, StatBlock } from '../types';
 import { blankLootLine, lootKindLabel } from '../lib/loot';
+import { NumberField } from './ui/NumberField';
 
 function DepDialog({
   missing,
@@ -639,8 +640,7 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
                           <span className="min-w-0 flex-1 truncate text-text">
                             {e.nameOverride || e.nameSnapshot}
                           </span>
-                          <input
-                            type="number"
+                          <NumberField
                             min={1}
                             max={24}
                             className="field w-14 py-0.5 text-center font-mono-stats tabular-nums"
@@ -651,19 +651,15 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
                                 ? 'Reset scale to ×1 to edit quantities'
                                 : 'Quantity'
                             }
-                            onChange={(ev) => {
-                              const raw = ev.target.value;
-                              if (raw.trim() === '') return;
-                              const n = Number(raw);
-                              if (!Number.isFinite(n)) return;
+                            onChange={(quantity) =>
                               patchSelected(
                                 setCreatureEntryQuantity(
                                   selected,
                                   e.creatureId,
-                                  n,
+                                  quantity,
                                 ),
-                              );
-                            }}
+                              )
+                            }
                           />
                           <button
                             type="button"

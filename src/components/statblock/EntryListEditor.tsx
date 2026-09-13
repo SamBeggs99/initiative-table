@@ -8,6 +8,7 @@ import {
 } from '../../lib/parse';
 import { formatModifier } from '../../lib/statblock-derived';
 import type { DamagePart, Entry } from '../../types';
+import { NullableNumberField } from '../ui/NumberField';
 
 interface EntryListEditorProps {
   label: string;
@@ -298,17 +299,15 @@ export function EntryListEditor({
               <div className="mb-1.5 flex flex-wrap items-end gap-1.5">
                 <label className="w-[5.5rem] text-[10px] text-muted">
                   Attack
-                  <input
-                    type="number"
+                  <NullableNumberField
                     className="field mt-0.5 w-full py-1 font-mono-stats text-xs tabular-nums"
-                    value={entry.attackBonus ?? ''}
+                    // Blank means "no attack roll on this action", which is not
+                    // the same as an attack bonus of +0.
+                    value={entry.attackBonus ?? null}
                     placeholder="+7"
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      update(index, {
-                        attackBonus: raw === '' ? undefined : Number(raw),
-                      });
-                    }}
+                    onChange={(n) =>
+                      update(index, { attackBonus: n ?? undefined })
+                    }
                   />
                 </label>
                 <button

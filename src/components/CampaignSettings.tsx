@@ -11,6 +11,7 @@ import { selectActiveCombatants, useStore } from '../store';
 import type { System } from '../types';
 import { useCloudAuth } from '../lib/cloud/auth-context';
 import { ConfirmDialog } from './ui/AskDialog';
+import { NumberField } from './ui/NumberField';
 
 function formatSyncedAt(ts?: number): string {
   if (!ts) return 'never';
@@ -220,14 +221,13 @@ export function CampaignSettings({ onClose }: { onClose: () => void }) {
             <span className="mb-1 block text-xs uppercase tracking-wider text-muted">
               Session number
             </span>
-            <input
-              type="number"
+            <NumberField
               min={1}
               className="w-24 rounded border border-border bg-panel-2 px-2 py-1.5 font-mono-stats tabular-nums text-text"
               value={campaign.sessionNumber ?? 1}
-              onChange={(e) =>
+              onChange={(n) =>
                 updateCampaign(campaign.id, {
-                  sessionNumber: Math.max(1, Number(e.target.value) || 1),
+                  sessionNumber: Math.max(1, n || 1),
                 })
               }
             />

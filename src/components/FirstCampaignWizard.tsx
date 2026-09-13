@@ -13,6 +13,7 @@ import { formatAbilityScore } from '../lib/statblock-derived';
 import { BloomCluster, CornerVine, SproutMark, VineRule } from './ornament/Botanical';
 import { useStore } from '../store';
 import type { System } from '../types';
+import { NumberField } from './ui/NumberField';
 
 type Step = 'welcome' | 'party' | 'sample' | 'done';
 
@@ -313,49 +314,45 @@ export function FirstCampaignWizard({
                     <div className="col-span-4 grid grid-cols-4 gap-1.5">
                       <label className="text-[10px] text-muted">
                         Lvl
-                        <input
-                          type="number"
+                        <NumberField
                           className="field mt-0.5 w-full py-0.5"
                           value={d.level}
                           min={1}
                           max={20}
-                          onChange={(e) =>
-                            updateDraft(i, { level: Number(e.target.value) })
+                          onChange={(n) =>
+                            updateDraft(i, { level: n })
                           }
                         />
                       </label>
                       <label className="text-[10px] text-muted">
                         AC
-                        <input
-                          type="number"
+                        <NumberField
                           className="field mt-0.5 w-full py-0.5"
                           value={d.ac}
-                          onChange={(e) =>
-                            updateDraft(i, { ac: Number(e.target.value) })
+                          onChange={(n) =>
+                            updateDraft(i, { ac: n })
                           }
                         />
                       </label>
                       <label className="text-[10px] text-muted">
                         HP
-                        <input
-                          type="number"
+                        <NumberField
                           className="field mt-0.5 w-full py-0.5"
                           value={d.maxHp}
-                          onChange={(e) =>
-                            updateDraft(i, { maxHp: Number(e.target.value) })
+                          onChange={(n) =>
+                            updateDraft(i, { maxHp: n })
                           }
                         />
                       </label>
                       <label className="text-[10px] text-muted">
                         Dex score
-                        <input
-                          type="number"
+                        <NumberField
                           min={1}
                           max={30}
                           className="field mt-0.5 w-full py-0.5"
                           value={d.dex}
-                          onChange={(e) =>
-                            updateDraft(i, { dex: Number(e.target.value) })
+                          onChange={(n) =>
+                            updateDraft(i, { dex: n })
                           }
                         />
                         <span className="mt-0.5 block font-mono-stats tabular-nums opacity-80">

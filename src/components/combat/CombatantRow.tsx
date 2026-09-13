@@ -26,6 +26,7 @@ import type { ActionCost } from '../../lib/pf2e-actions';
 import { DamageTypeSelect } from './DamageTypeSelect';
 import { PortraitThumb } from '../ui/Portrait';
 import { HitEffect } from './HitEffect';
+import { NullableNumberField } from '../ui/NumberField';
 import type { PortraitRef } from '../../lib/portrait';
 
 const ROLE_RAIL: Record<CombatantRole, string> = {
@@ -198,17 +199,13 @@ export function CombatantRow({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {showInitiative &&
               (editingInit && !sharedScreen ? (
-                <input
+                <NullableNumberField
                   autoFocus
-                  type="number"
                   className="field w-14 py-0.5 text-center font-mono-stats text-base tabular-nums"
-                  value={combatant.initiative ?? ''}
-                  onChange={(e) =>
-                    onUpdate({
-                      initiative:
-                        e.target.value === '' ? null : Number(e.target.value),
-                    })
-                  }
+                  // Nullable, not 0: a blank initiative means "not rolled yet",
+                  // which sorts and reads differently from an initiative of 0.
+                  value={combatant.initiative ?? null}
+                  onChange={(initiative) => onUpdate({ initiative })}
                   onBlur={() => setEditingInit(false)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') setEditingInit(false);

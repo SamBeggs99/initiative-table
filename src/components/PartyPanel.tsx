@@ -21,6 +21,7 @@ import { Sprig } from './ornament/Botanical';
 import { ConfirmDialog } from './ui/AskDialog';
 import { HeroPointPips } from './combat/HeroPointPips';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
+import { NumberField } from './ui/NumberField';
 
 function PartyHpField({
   memberId,
@@ -108,29 +109,27 @@ function LiveHpEditor({ member }: { member: PartyMember }) {
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="text-[10px] text-muted">Current</span>
-          <input
-            type="number"
+          <NumberField
             min={0}
             max={live.maxHp}
             className="mt-0.5 w-full rounded border border-border bg-panel px-2 py-1 font-mono-stats text-xs tabular-nums text-text"
             value={live.currentHp}
-            onChange={(e) =>
+            onChange={(n) =>
               patchPartyLive(member.id, {
-                currentHp: Math.max(0, Number(e.target.value) || 0),
+                currentHp: Math.max(0, n),
               })
             }
           />
         </label>
         <label className="block">
           <span className="text-[10px] text-muted">Temp</span>
-          <input
-            type="number"
+          <NumberField
             min={0}
             className="mt-0.5 w-full rounded border border-border bg-panel px-2 py-1 font-mono-stats text-xs tabular-nums text-text"
             value={live.tempHp}
-            onChange={(e) =>
+            onChange={(n) =>
               patchPartyLive(member.id, {
-                tempHp: Math.max(0, Number(e.target.value) || 0),
+                tempHp: Math.max(0, n),
               })
             }
           />
@@ -192,14 +191,13 @@ function SpellSlotMaxEditor({
         {Array.from({ length: 9 }, (_, i) => i + 1).map((lvl) => (
           <label key={lvl} className="block text-center">
             <span className="text-[10px] text-muted">{lvl}</span>
-            <input
-              type="number"
+            <NumberField
               min={0}
               max={20}
               className="w-full rounded border border-border bg-panel-2 px-0.5 py-0.5 text-center font-mono-stats text-xs tabular-nums text-text"
               value={member.spellSlots[lvl]?.max ?? 0}
-              onChange={(e) => {
-                const max = Math.max(0, Number(e.target.value) || 0);
+              onChange={(n) => {
+                const max = Math.max(0, n);
                 const prev = member.spellSlots[lvl] ?? { max: 0, used: 0 };
                 onChange({
                   ...member.spellSlots,
@@ -252,20 +250,18 @@ function LevelUpDialog({
         <div className="grid grid-cols-2 gap-2 text-sm">
           <label className="block">
             <span className="text-xs text-muted">AC</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={acAfter}
-              onChange={(e) => setAcAfter(Number(e.target.value) || 0)}
+              onChange={(n) => setAcAfter(n)}
             />
           </label>
           <label className="block">
             <span className="text-xs text-muted">Max HP</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={maxHpAfter}
-              onChange={(e) => setMaxHpAfter(Number(e.target.value) || 1)}
+              onChange={(n) => setMaxHpAfter(n || 1)}
             />
           </label>
         </div>
@@ -381,14 +377,13 @@ function SheetForm({
           </label>
           <label className="block">
             <span className="text-xs text-muted">Level</span>
-            <input
-              type="number"
+            <NumberField
               min={1}
               max={20}
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.level}
-              onChange={(e) =>
-                setSheet({ level: Math.max(1, Number(e.target.value) || 1) })
+              onChange={(n) =>
+                setSheet({ level: Math.max(1, n || 1) })
               }
             />
           </label>
@@ -410,37 +405,34 @@ function SheetForm({
           </label>
           <label className="block">
             <span className="text-xs text-muted">AC (gear OK)</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.ac}
-              onChange={(e) =>
-                setDraft((d) => applyGearChange(d, { ac: Number(e.target.value) || 0 }))
+              onChange={(n) =>
+                setDraft((d) => applyGearChange(d, { ac: n }))
               }
             />
           </label>
           <label className="block">
             <span className="text-xs text-muted">Max HP (gear OK)</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.maxHp}
-              onChange={(e) =>
+              onChange={(n) =>
                 setDraft((d) =>
-                  applyGearChange(d, { maxHp: Number(e.target.value) || 1 }),
+                  applyGearChange(d, { maxHp: n || 1 }),
                 )
               }
             />
           </label>
           <label className="block">
             <span className="text-xs text-muted">Dex score</span>
-            <input
-              type="number"
+            <NumberField
               min={1}
               max={30}
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.dex}
-              onChange={(e) => setSheet({ dex: Number(e.target.value) || 10 })}
+              onChange={(n) => setSheet({ dex: n || 10 })}
             />
             <span className="mt-0.5 block font-mono-stats text-[10px] tabular-nums text-muted">
               {formatAbilityScore(draft.dex)} — same formula for 5e and PF2e
@@ -448,23 +440,21 @@ function SheetForm({
           </label>
           <label className="block">
             <span className="text-xs text-muted">Passive Perception</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.passivePerception}
-              onChange={(e) =>
-                setSheet({ passivePerception: Number(e.target.value) || 10 })
+              onChange={(n) =>
+                setSheet({ passivePerception: n || 10 })
               }
             />
           </label>
           <label className="block">
             <span className="text-xs text-muted">Passive Investigation</span>
-            <input
-              type="number"
+            <NumberField
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.passiveInvestigation}
-              onChange={(e) =>
-                setSheet({ passiveInvestigation: Number(e.target.value) || 10 })
+              onChange={(n) =>
+                setSheet({ passiveInvestigation: n || 10 })
               }
             />
           </label>
@@ -483,13 +473,12 @@ function SheetForm({
         {system === 'pf2e' && draft.focusPoints && (
           <label className="mt-3 block text-sm">
             <span className="text-xs text-muted">Focus points max</span>
-            <input
-              type="number"
+            <NumberField
               min={0}
               className="mt-0.5 w-24 rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
               value={draft.focusPoints.max}
-              onChange={(e) =>
-                setSheet({ focusPointsMax: Number(e.target.value) || 0 })
+              onChange={(n) =>
+                setSheet({ focusPointsMax: n })
               }
             />
           </label>
@@ -931,7 +920,12 @@ export function PartyPanel() {
         </div>
       )}
 
-      <ul className="max-h-48 space-y-0.5 overflow-auto text-sm">
+      {/*
+        No max-height: the roster rail is itself the scroll container, and
+        capping this list inside it meant a second scrollbar appearing with
+        plenty of empty space underneath.
+      */}
+      <ul className="space-y-0.5 text-sm">
         {campaign.party.length === 0 ? (
           <li className="flex items-center gap-2 rounded border border-dashed border-border p-3 text-xs text-muted">
             <Sprig />
@@ -943,7 +937,7 @@ export function PartyPanel() {
             return (
               <li key={p.id}>
                 <div
-                  className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${
+                  className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-2 py-1.5 transition-colors ${
                     selected?.id === p.id
                       ? 'border-accent/50 bg-accent/10 text-text'
                       : 'border-transparent text-text hover:border-border hover:bg-panel-2'
@@ -956,7 +950,7 @@ export function PartyPanel() {
                 >
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      className="flex min-w-[11rem] flex-1 items-center gap-2 text-left"
                       onClick={() => setSelectedId(p.id)}
                     >
                       {p.portraitId || p.portraitDataUrl ? (
@@ -974,7 +968,12 @@ export function PartyPanel() {
                         />
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="name-identity block truncate font-semibold">
+                        {/* A very long name still clips in a narrow rail;
+                            the tooltip is what makes that recoverable. */}
+                        <span
+                          className="name-identity block truncate font-semibold"
+                          title={p.name}
+                        >
                           {p.name}
                         </span>
                         <span className="block truncate text-[10px] text-muted">

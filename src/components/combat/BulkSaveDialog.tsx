@@ -5,6 +5,7 @@ import {
   rollAbilitySave,
 } from '../../lib/combat';
 import type { Ability, Combatant } from '../../types';
+import { NumberField } from '../ui/NumberField';
 
 interface SaveRow {
   combatantId: string;
@@ -87,11 +88,10 @@ export function BulkSaveDialog({
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-muted">
               DC
-              <input
-                type="number"
+              <NumberField
                 className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                 value={dc}
-                onChange={(e) => setDc(Number(e.target.value) || 0)}
+                onChange={(n) => setDc(n)}
               />
             </label>
             <label className="text-xs text-muted">
@@ -110,11 +110,10 @@ export function BulkSaveDialog({
             </label>
             <label className="text-xs text-muted">
               Damage
-              <input
-                type="number"
+              <NumberField
                 className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                 value={damage}
-                onChange={(e) => setDamage(Number(e.target.value) || 0)}
+                onChange={(n) => setDamage(n)}
               />
             </label>
             <label className="text-xs text-muted">

@@ -11,6 +11,7 @@ import {
 import type { Spell, System } from '../../types';
 import { ConfirmDialog } from '../ui/AskDialog';
 import { SpellPreview } from './SpellPreview';
+import { NumberField } from '../ui/NumberField';
 
 /** The five casts PF2e recognises, in the order the books print them. */
 const ACTION_COSTS: ActionCost[] = [1, 2, 3, 'reaction', 'free'];
@@ -157,14 +158,13 @@ export function SpellEditor({
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-xs text-muted">
                 {system === 'pf2e' ? 'Rank (0 = cantrip)' : 'Level (0 = cantrip)'}
-                <input
-                  type="number"
+                <NumberField
                   min={0}
                   max={10}
                   className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                   value={draft.level}
-                  onChange={(e) =>
-                    patch({ level: Math.max(0, Number(e.target.value) || 0) })
+                  onChange={(n) =>
+                    patch({ level: Math.max(0, n) })
                   }
                 />
               </label>

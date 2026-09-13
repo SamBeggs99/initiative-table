@@ -8,6 +8,12 @@
       "port": 5188
     },
     {
+      "name": "dev-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5189", "--strictPort"],
+      "port": 5189
+    },
+    {
       "name": "preview",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "preview", "--port", "4173"],

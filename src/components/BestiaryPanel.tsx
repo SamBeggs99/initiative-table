@@ -28,6 +28,7 @@ import {
 import { NpcQuickEditor } from './NpcPanel';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
 import { Modal } from './ui/Modal';
+import { NumberField } from './ui/NumberField';
 
 function formatSyncedAt(ts?: number): string {
   if (!ts) return 'never';
@@ -302,14 +303,13 @@ export function BestiaryPanel() {
         </label>
         <label className="flex shrink-0 items-center gap-1 text-xs text-muted">
           Qty
-          <input
-            type="number"
+          <NumberField
             min={1}
             max={12}
             className="field w-12 py-0.5 font-mono-stats tabular-nums"
             value={quantity}
-            onChange={(e) =>
-              setQuantity(Math.min(12, Math.max(1, Number(e.target.value) || 1)))
+            onChange={(n) =>
+              setQuantity(Math.min(12, Math.max(1, n || 1)))
             }
           />
         </label>

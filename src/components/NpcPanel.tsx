@@ -20,6 +20,7 @@ import type { NpcRecord, StatBlock, System } from '../types';
 import { ConfirmDialog } from './ui/AskDialog';
 import { LazyOverlay } from './ui/LazyOverlay';
 import { PortraitField, PortraitThumb } from './ui/Portrait';
+import { NumberField } from './ui/NumberField';
 
 type CreateMode = 'paste' | 'json' | 'manual-character' | 'manual-statted' | null;
 
@@ -165,22 +166,20 @@ export function NpcQuickEditor({
             <div className="grid grid-cols-3 gap-2">
               <label className="block">
                 <span className="text-xs text-muted">AC</span>
-                <input
-                  type="number"
+                <NumberField
                   className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                   value={draft.statBlock.ac}
-                  onChange={(e) => patchBlock({ ac: Number(e.target.value) || 0 })}
+                  onChange={(n) => patchBlock({ ac: n })}
                 />
               </label>
               <label className="block">
                 <span className="text-xs text-muted">HP current</span>
-                <input
-                  type="number"
+                <NumberField
                   className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                   value={draft.persistentHp?.current ?? draft.statBlock.hpAvg}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     setHp(
-                      Number(e.target.value) || 0,
+                      n,
                       draft.persistentHp?.max ?? draft.statBlock!.hpAvg,
                     )
                   }
@@ -188,14 +187,13 @@ export function NpcQuickEditor({
               </label>
               <label className="block">
                 <span className="text-xs text-muted">HP max</span>
-                <input
-                  type="number"
+                <NumberField
                   className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
                   value={draft.persistentHp?.max ?? draft.statBlock.hpAvg}
-                  onChange={(e) =>
+                  onChange={(n) =>
                     setHp(
                       draft.persistentHp?.current ?? draft.statBlock!.hpAvg,
-                      Number(e.target.value) || 1,
+                      n || 1,
                     )
                   }
                 />

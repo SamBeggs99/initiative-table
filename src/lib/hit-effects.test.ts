@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DAMAGE_TYPES } from './damage-types';
-import { ALL_HIT_MOTIONS, hitEffect } from './hit-effects';
+import {
+  ALL_HIT_MOTIONS,
+  HIT_EFFECT_DWELL_MS,
+  hitEffect,
+} from './hit-effects';
 
 describe('every damage type resolves', () => {
   it('maps all 18 types to a known motion with a colour and a duration', () => {
@@ -88,11 +92,13 @@ describe('outcome emphasis', () => {
 
 describe('durations stay inside a usable band', () => {
   it('never outlasts a turn or flickers past unseen', () => {
+    // Measured against the shared dwell, so raising or lowering that one knob
+    // moves the whole band with it rather than breaking this guard.
     const kinds = [...DAMAGE_TYPES, 'heal', 'temp', 'crit', 'miss', undefined];
     for (const k of kinds) {
       const { durationMs } = hitEffect(k);
-      expect(durationMs).toBeGreaterThanOrEqual(300);
-      expect(durationMs).toBeLessThanOrEqual(1200);
+      expect(durationMs).toBeGreaterThanOrEqual(HIT_EFFECT_DWELL_MS + 300);
+      expect(durationMs).toBeLessThanOrEqual(HIT_EFFECT_DWELL_MS + 1200);
     }
   });
 

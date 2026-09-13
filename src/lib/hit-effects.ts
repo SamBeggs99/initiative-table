@@ -142,6 +142,22 @@ const MOTION_DURATION: Record<HitMotion, number> = {
   drip: 800,
 };
 
+/**
+ * Extra time every hit effect is given on top of its base motion.
+ *
+ * The numbers above describe each motion's *character* — a slash is quicker
+ * than a mend, and that relationship should hold. What they were not was long
+ * enough to actually watch: at the table the DM is looking at the player they
+ * just hit, not at the screen, and by the time they look back the effect has
+ * been and gone. One flat constant lengthens the dwell without flattening the
+ * rhythm, and it is the single knob to turn if the tape starts feeling slow.
+ */
+export const HIT_EFFECT_DWELL_MS = 1000;
+
+function dwell(baseMs: number): number {
+  return baseMs + HIT_EFFECT_DWELL_MS;
+}
+
 function isDamageType(value: string): value is DamageType {
   return value in MOTION_BY_TYPE;
 }
@@ -160,7 +176,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'shock',
       color: 'var(--color-amber)',
       particles: 4,
-      durationMs: 720,
+      durationMs: dwell(720),
       emphatic: true,
     };
   }
@@ -173,7 +189,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'slash',
       color: 'var(--color-muted)',
       particles: 1,
-      durationMs: 300,
+      durationMs: dwell(300),
       emphatic: false,
     };
   }
@@ -186,7 +202,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'expire',
       color: 'var(--color-muted)',
       particles: 0,
-      durationMs: MOTION_DURATION.expire,
+      durationMs: dwell(MOTION_DURATION.expire),
       emphatic: false,
     };
   }
@@ -198,7 +214,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'collapse',
       color: 'var(--color-amber)',
       particles: 0,
-      durationMs: MOTION_DURATION.collapse,
+      durationMs: dwell(MOTION_DURATION.collapse),
       emphatic: true,
     };
   }
@@ -209,7 +225,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'mend',
       color: 'var(--color-heal)',
       particles: MOTION_PARTICLES.mend,
-      durationMs: MOTION_DURATION.mend,
+      durationMs: dwell(MOTION_DURATION.mend),
       emphatic: false,
     };
   }
@@ -222,7 +238,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion: 'ward',
       color: 'var(--color-accent-2)',
       particles: MOTION_PARTICLES.ward,
-      durationMs: MOTION_DURATION.ward,
+      durationMs: dwell(MOTION_DURATION.ward),
       emphatic: false,
     };
   }
@@ -234,7 +250,7 @@ export function hitEffect(type?: string): HitEffectSpec {
       motion,
       color: DAMAGE_TYPE_FLASH[key],
       particles: MOTION_PARTICLES[motion],
-      durationMs: MOTION_DURATION[motion],
+      durationMs: dwell(MOTION_DURATION[motion]),
       emphatic: false,
     };
   }
@@ -245,7 +261,7 @@ export function hitEffect(type?: string): HitEffectSpec {
     motion: 'impact',
     color: 'var(--color-damage)',
     particles: 1,
-    durationMs: 420,
+    durationMs: dwell(420),
     emphatic: false,
   };
 }

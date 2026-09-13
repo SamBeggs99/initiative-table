@@ -1058,6 +1058,68 @@ html[data-theme='night'] {
     filter: grayscale(0.85);
   }
 
+  /* ---------- Hand-sorting the turn order ---------- */
+
+  /*
+   * The grip is the only part of a row that starts a drag. Everything else in
+   * the row is a field or a button, and making the whole row draggable would
+   * cost you text selection in the HP input for a gesture you rarely want.
+   */
+  .row-grip {
+    cursor: grab;
+    user-select: none;
+    line-height: 1;
+    font-size: 0.85rem;
+    letter-spacing: -0.05em;
+    color: color-mix(in srgb, var(--color-muted) 75%, transparent);
+    transition: color 120ms ease;
+  }
+
+  .row-grip:hover {
+    color: var(--color-accent);
+  }
+
+  .row-grip:active {
+    cursor: grabbing;
+  }
+
+  /* The row being carried: still legible, clearly not where it lives. */
+  .row-dragging {
+    opacity: 0.45;
+  }
+
+  /*
+   * Where it will land. Drawn on the wrapper rather than the row so it sits
+   * outside `.row-combat`'s `overflow: hidden`, and inset to match the tapered
+   * separator it replaces.
+   */
+  .row-drop-above,
+  .row-drop-below {
+    position: relative;
+  }
+
+  .row-drop-above::before,
+  .row-drop-below::after {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 2px;
+    z-index: 3;
+    pointer-events: none;
+    border-radius: 2px;
+    background: var(--color-accent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 60%, transparent);
+  }
+
+  .row-drop-above::before {
+    top: -1px;
+  }
+
+  .row-drop-below::after {
+    bottom: -1px;
+  }
+
   /*
    * Progressive disclosure: state is always visible, affordances appear on the
    * active row, on hover, or when anything inside the row has focus.
@@ -2048,7 +2110,8 @@ html[data-theme='night'] {
       ) !important;
       box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--fx) 80%, transparent);
       transform: none !important;
-      animation: fx-static-hold 900ms steps(1, end) forwards !important;
+      /* Matches the motion it stands in for, so the read lasts just as long. */
+      animation: fx-static-hold var(--fx-ms) steps(1, end) forwards !important;
     }
 
     @keyframes fx-static-hold {

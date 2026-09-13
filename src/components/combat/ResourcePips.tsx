@@ -1,6 +1,5 @@
 import type { Combatant } from '../../types';
 import type { StatBlockFormModel } from '../../systems';
-import { actionCostGlyph } from '../../lib/pf2e-actions';
 
 export function ResourcePips({
   combatant,
@@ -26,6 +25,7 @@ export function ResourcePips({
   const hasLegendary = form.showLegendaryBlock && combatant.legendaryActions.max > 0;
   const hasLimited = combatant.limitedUses.some((u) => u.max > 0);
   const actionsLeft = combatant.actionsRemaining ?? 3;
+  const spent = Math.max(0, Math.min(3, 3 - actionsLeft));
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
@@ -65,22 +65,45 @@ export function ResourcePips({
       )}
 
       {form.showPf2eBlock && (
-        <button
-          type="button"
-          className="pip font-mono-stats tabular-nums"
-          title="Click: spend 1 action · Shift+click: restore 3 / clear MAP"
-          onClick={(e) => {
-            if (e.shiftKey) onRestoreActions?.();
-            else onSpendAction?.();
-          }}
-        >
-          <span className="text-accent" aria-hidden>
-            {actionCostGlyph(
-              actionsLeft >= 3 ? 3 : actionsLeft === 2 ? 2 : actionsLeft === 1 ? 1 : 'free',
-            )}
-          </span>{' '}
-          {actionsLeft} MAP {combatant.mapPenalty ?? 0}
-        </button>
+        <>
+          <button
+            type="button"
+            className="pip font-mono-stats tabular-nums"
+            title="Click: spend 1 action"
+            onClick={onSpendAction}
+          >
+            {/*
+              Three slots, filled for what is left and hollow for what is spent,
+              rather than a glyph for the count. At a glance it reads as a turn
+              partly used; the old version printed the free-action mark at zero,
+              which said the opposite of what it meant.
+            */}
+            <span className="text-accent" aria-hidden>
+              {'◆'.repeat(3 - spent)}
+            </span>
+            <span className="text-muted/60" aria-hidden>
+              {'◇'.repeat(spent)}
+            </span>{' '}
+            {actionsLeft} MAP {combatant.mapPenalty ?? 0}
+          </button>
+          {/*
+            A visible way back. Spending was one click and restoring was a
+            shift-click documented only in a tooltip, so an extra tap on the pip
+            was unrecoverable in practice. Shown only once there is something to
+            undo, so a fresh turn stays uncluttered.
+          */}
+          {(spent > 0 || (combatant.mapPenalty ?? 0) > 0) && (
+            <button
+              type="button"
+              className="pip"
+              onClick={onRestoreActions}
+              title="Restore all 3 actions and clear MAP"
+              aria-label="Restore actions"
+            >
+              ↺
+            </button>
+          )}
+        </>
       )}
 
       {hasLimited &&

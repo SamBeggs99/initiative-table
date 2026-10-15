@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { applyDamage } from './damage';
 import {
+  activeParty,
   adjustPartyLiveHp,
   applyGearChange,
+  benchPartyMember,
+  isBenched,
+  unbenchPartyMember,
   applyLevelUp,
   applyLivePatch,
   applyPartyLiveWriteBack,
@@ -28,6 +32,12 @@ import {
 import { createCombatant } from '../types';
 import { importDdbJson } from './import/ddb';
 import { importPathbuilderJson } from './import/pathbuilder';
+import {
+  abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
+} from './statblock-derived';
+import { getSystemAdapter } from '../systems';
 
 describe('sheet vs live', () => {
   it('live patch never mutates maxHp or ac', () => {
@@ -181,7 +191,7 @@ describe('sheet vs live', () => {
     ]);
     const again = ensurePartyCombatants(first.combatants, [a, b]);
     expect(again.added).toHaveLength(0);
-    expect(again.removed).toBe(0);
+    expect(again.removed).toHaveLength(0);
   });
 
   it('drops tape rows when a party member is deleted', () => {
@@ -193,9 +203,60 @@ describe('sheet vs live', () => {
       [partyMemberToCombatant(a), partyMemberToCombatant(b)],
       [a],
     );
-    expect(result.removed).toBe(1);
+    expect(result.removed).toHaveLength(1);
+    expect(result.removed[0]!.sourcePartyMemberId).toBe('pc2');
     expect(result.combatants).toHaveLength(1);
     expect(result.combatants[0]!.sourcePartyMemberId).toBe('pc1');
+  });
+
+  it('never seats a benched character, and drops the row if they are seated', () => {
+    const a = blankPartyMember('camp');
+    a.id = 'pc1';
+    a.name = 'Kael';
+    const b = blankPartyMember('camp');
+    b.id = 'pc2';
+    b.name = 'Aria';
+
+    const seated = ensurePartyCombatants([], [a, b]);
+    expect(seated.combatants.map((c) => c.name)).toEqual(['Kael', 'Aria']);
+
+    const benchedAria = { ...b, benched: true };
+    const after = ensurePartyCombatants(seated.combatants, [a, benchedAria]);
+    expect(after.removed.map((c) => c.name)).toEqual(['Aria']);
+    expect(after.combatants.map((c) => c.name)).toEqual(['Kael']);
+
+    // And a re-sync does not quietly seat them again.
+    const stable = ensurePartyCombatants(after.combatants, [a, benchedAria]);
+    expect(stable.added).toHaveLength(0);
+    expect(stable.combatants).toHaveLength(1);
+    expect(partyMembersNotInCombat([a, benchedAria], after.combatants)).toEqual(
+      [],
+    );
+  });
+
+  it('benching banks the combatant HP on the sheet; rejoining restores it', () => {
+    const m = blankPartyMember('camp');
+    m.id = 'pc1';
+    m.maxHp = 40;
+    m.currentHp = 40;
+
+    const row = partyMemberToCombatant(m);
+    const hurt = { ...row, hp: 7, tempHp: 3 };
+
+    const benched = benchPartyMember(m, hurt);
+    expect(benched.benched).toBe(true);
+    expect(benched.currentHp).toBe(7);
+    expect(benched.tempHp).toBe(3);
+    // Sheet fields are untouched by the write-back.
+    expect(benched.maxHp).toBe(40);
+
+    const back = unbenchPartyMember(benched);
+    expect(back.benched).toBeUndefined();
+    expect(isBenched(back)).toBe(false);
+    // They come back as hurt as they left, not topped up.
+    expect(partyMemberToCombatant(back).hp).toBe(7);
+    expect(activeParty([back])).toHaveLength(1);
+    expect(activeParty([benched])).toHaveLength(0);
   });
 
   it('resets initiative after a fight but keeps HP', () => {
@@ -428,5 +489,80 @@ describe('importPathbuilderJson', () => {
     expect(result.member.maxHp).toBe(50);
     expect(result.member.importedFrom).toBe('pathbuilder');
     expect(result.member.focusPoints?.max).toBe(1);
+  });
+});
+
+describe('PF2e sheets read and write Dex as a modifier', () => {
+  // The sheet form, the wizard column and the import review all convert at
+  // the UI boundary only: PartyMember keeps a score, so nothing in combat
+  // math moves. These guard the pair of helpers that conversion leans on, so
+  // a Dex cannot drift by 10 between what the DM reads and what is stored.
+  it('gives each system the ability style its sheets print', () => {
+    expect(getSystemAdapter('dnd5e').statBlockForm.abilityStyle).toBe('score');
+    expect(getSystemAdapter('pf2e').statBlockForm.abilityStyle).toBe(
+      'modifier',
+    );
+  });
+
+  it('round-trips every modifier a character sheet can hold', () => {
+    for (let mod = -5; mod <= 10; mod++) {
+      const score = abilityScoreFromModifier(mod);
+      expect(abilityModifier(score)).toBe(mod);
+      expect(formatAbility(score, 'modifier')).toBe(
+        mod >= 0 ? `+${mod}` : `${mod}`,
+      );
+    }
+  });
+
+  it('leaves the stored score alone when the form saves what it showed', () => {
+    const m = blankPartyMember('camp', { system: 'pf2e' });
+    m.dex = 18;
+    // What the PF2e field reads out, then writes back untouched.
+    const shown = abilityModifier(m.dex);
+    expect(shown).toBe(4);
+    const saved = applySheetPatch(m, { dex: abilityScoreFromModifier(shown) });
+    expect(saved.dex).toBe(18);
+    expect(partyMemberToCombatant(saved).dex).toBe(18);
+  });
+
+  it('keeps an imported Pathbuilder Dex reading as the sheet prints it', () => {
+    const result = importPathbuilderJson(
+      JSON.stringify({
+        success: true,
+        build: {
+          name: 'Amiri',
+          class: 'Barbarian',
+          level: 3,
+          ancestry: 'Human',
+          abilities: { str: 18, dex: 14, con: 14, int: 10, wis: 12, cha: 8 },
+          attributes: {
+            ancestryhp: 8,
+            classhp: 12,
+            bonushp: 0,
+            bonushpPerLevel: 0,
+          },
+          acTotal: { acTotal: 18 },
+          perception: 6,
+        },
+      }),
+      'camp',
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Pathbuilder exports a score; the review line reads it back as "+2".
+    expect(result.member.dex).toBe(14);
+    expect(formatAbility(result.member.dex, 'modifier')).toBe('+2');
+    const saved = applySheetPatch(result.member, {
+      dex: abilityScoreFromModifier(abilityModifier(result.member.dex)),
+    });
+    expect(saved.dex).toBe(14);
+  });
+
+  it('keeps the modifier when an odd score settles on the even one', () => {
+    // Apex items hand out odd scores (19). PF2e only ever reads the modifier,
+    // so +4 stays +4 — the stored score settles on 18 if the field is edited.
+    expect(abilityModifier(19)).toBe(4);
+    expect(abilityScoreFromModifier(abilityModifier(19))).toBe(18);
+    expect(abilityModifier(18)).toBe(4);
   });
 });

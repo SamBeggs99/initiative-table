@@ -81,6 +81,16 @@ export interface BudgetPartyMember {
 }
 
 /** Which creature-editor fields to render — consumers read this, never branch on System. */
+/**
+ * How a creature's abilities are written down.
+ *
+ * 5e prints a score with the modifier in brackets — `18 (+4)`. A PF2e stat
+ * block has no scores at all: a creature is `Str +4`, and showing it a score
+ * is inventing a number the book never printed. Storage keeps a score either
+ * way (see `StatBlock.abilities`); this decides what the DM reads and types.
+ */
+export type AbilityStyle = 'score' | 'modifier';
+
 export type StatBlockFormModel =
   | {
       kind: 'dnd5e';
@@ -88,6 +98,7 @@ export type StatBlockFormModel =
       showLegendaryBlock: true;
       showLegendaryResistance: true;
       showPf2eBlock: false;
+      abilityStyle: 'score';
     }
   | {
       kind: 'pf2e';
@@ -95,6 +106,7 @@ export type StatBlockFormModel =
       showLegendaryBlock: false;
       showLegendaryResistance: false;
       showPf2eBlock: true;
+      abilityStyle: 'modifier';
     };
 
 export interface SystemAdapter {

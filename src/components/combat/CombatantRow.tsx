@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { HERO_POINT_SESSION_START } from '../../lib/party';
+import { isOutCold } from '../../lib/damage';
 import { useStore } from '../../store';
 import {
   combatantRole,
@@ -63,6 +64,9 @@ export function CombatantRow({
   onTemp,
   onOpenStatBlock,
   onDeathSave,
+  onRevive,
+  nonLethal,
+  onNonLethalChange,
   onAddCondition,
   onRemoveCondition,
   onUseAction,
@@ -108,6 +112,10 @@ export function CombatantRow({
   onTemp: (n: number) => void;
   onOpenStatBlock: () => void;
   onDeathSave: () => void;
+  onRevive: () => void;
+  /** Armed tracker-wide: damage typed into this row lands as a pulled punch. */
+  nonLethal?: boolean;
+  onNonLethalChange?: (on: boolean) => void;
   onAddCondition: () => void;
   onRemoveCondition: (name: string) => void;
   /** Spend action cost (PF2e) and/or roll structured damage onto the selection. */
@@ -117,8 +125,16 @@ export function CombatantRow({
   const [editingInit, setEditingInit] = useState(false);
   const [dmg, setDmg] = useState('');
 
-  const deadMonster = combatant.kind !== 'pc' && combatant.hp <= 0 && combatant.kind !== 'lair';
-  const downedPc = combatant.kind === 'pc' && combatant.hp <= 0;
+  // Out cold is its own state, and deliberately not dressed as death: no
+  // strike-through, no red, and for a hero no death saves ticking down.
+  const outCold = isOutCold(combatant);
+  const deadMonster =
+    combatant.kind !== 'pc' &&
+    combatant.hp <= 0 &&
+    combatant.kind !== 'lair' &&
+    !outCold;
+  const downedPc = combatant.kind === 'pc' && combatant.hp <= 0 && !outCold;
+  const canRevive = combatant.kind !== 'lair' && combatant.hp <= 0;
   const role = combatantRole(combatant);
   const identityLabel =
     combatant.kind === 'pc'
@@ -148,7 +164,7 @@ export function CombatantRow({
         selected ? 'row-selected row-reveal' : ''
       } ${focused && !active ? 'row-focused' : ''} ${
         deadMonster ? 'row-dead line-through' : ''
-      } ${downedPc ? 'row-downed' : ''} ${
+      } ${downedPc ? 'row-downed' : ''} ${outCold ? 'row-out-cold' : ''} ${
         turnPulse && active ? 'row-turn-pulse' : ''
       } ${dragging ? 'row-dragging' : ''}`}
       style={
@@ -266,6 +282,15 @@ export function CombatantRow({
               </span>
             )}
 
+            {outCold && (
+              <span
+                className="shrink-0 rounded-sm bg-amber/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber"
+                title="Knocked out by non-lethal damage — stable, not dying"
+              >
+                Out cold
+              </span>
+            )}
+
             {sharedScreen && combatant.conditions.length > 0 && (
               <ConditionChips
                 conditions={combatant.conditions}
@@ -376,6 +401,27 @@ export function CombatantRow({
                 onChange={onDamageTypeChange}
                 className="row-affordance w-[6.5rem]"
               />
+              {onNonLethalChange && (
+                <button
+                  type="button"
+                  // Fades with the rest of the strip even when armed: nine
+                  // lit copies is noise, and the banner above the tape is
+                  // what keeps the mode visible.
+                  className={`row-affordance btn btn-sm ${nonLethal ? 'btn-on' : 'btn-ghost'}`}
+                  aria-pressed={nonLethal === true}
+                  title={
+                    nonLethal
+                      ? 'Armed: damage knocks out instead of killing. Click to go back to lethal.'
+                      : 'Pull your punches — damage that drops someone knocks them out instead'
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNonLethalChange(!nonLethal);
+                  }}
+                >
+                  Non-lethal
+                </button>
+              )}
               <ConditionChips
                 conditions={combatant.conditions}
                 onRemove={onRemoveCondition}
@@ -441,18 +487,39 @@ export function CombatantRow({
               </div>
             )}
 
-          {downedPc && !sharedScreen && (
+          {canRevive && !sharedScreen && (
             <div
-              className="mt-1.5 flex items-center gap-2"
+              className="mt-1.5 flex flex-wrap items-center gap-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="section-title">Death</span>
-              <DeathSavePips
-                successes={combatant.deathSaves.successes}
-                failures={combatant.deathSaves.failures}
-              />
-              <button type="button" className="btn btn-sm btn-ghost" onClick={onDeathSave}>
-                Roll death save
+              {downedPc && (
+                <>
+                  <span className="section-title">Death</span>
+                  <DeathSavePips
+                    successes={combatant.deathSaves.successes}
+                    failures={combatant.deathSaves.failures}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={onDeathSave}
+                  >
+                    Roll death save
+                  </button>
+                </>
+              )}
+              {outCold && (
+                <span className="text-[11px] text-amber">
+                  Stable — no death saves while they are out cold.
+                </span>
+              )}
+              <button
+                type="button"
+                className="btn btn-sm btn-heal"
+                title="Back on their feet at 1 HP — clears death saves and the knockout"
+                onClick={onRevive}
+              >
+                {outCold ? 'Wake' : 'Revive'}
               </button>
             </div>
           )}

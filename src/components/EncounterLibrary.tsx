@@ -15,6 +15,7 @@ import {
   systemGateReason,
   type MissingDependency,
 } from '../lib/encounter-library';
+import { activeParty } from '../lib/party';
 import { useStore } from '../store';
 import { ConfirmDialog, PromptDialog } from './ui/AskDialog';
 import type { EncounterLootLine, SavedEncounter, StatBlock } from '../types';
@@ -268,11 +269,18 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
     return scale !== 1 ? scaleEncounter(selected, scale) : selected;
   }, [selected, scale]);
 
+  // A benched PC is not in the fight, so they are not in the XP budget either.
+  const fighting = useMemo(
+    () => (campaign ? activeParty(campaign.party) : []),
+    [campaign],
+  );
+  const benchedCount = (campaign?.party.length ?? 0) - fighting.length;
+
   const difficulty = useMemo(() => {
     if (!previewEncounter || !campaign) return null;
     const metas = monsterMeta[previewEncounter.id] ?? monsterMeta[selected?.id ?? ''] ?? [];
-    return computeEncounterDifficulty(previewEncounter, campaign.party, metas);
-  }, [previewEncounter, campaign, monsterMeta, selected?.id]);
+    return computeEncounterDifficulty(previewEncounter, fighting, metas);
+  }, [previewEncounter, campaign, fighting, monsterMeta, selected?.id]);
 
   const gate = selected && campaign ? systemGateReason(selected, campaign.system) : null;
 
@@ -701,7 +709,7 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
                 <div className="card p-2.5 text-xs">
                   <div className="text-muted">Difficulty vs this party (live)</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    {campaign?.party.length ? (
+                    {fighting.length ? (
                       difficulty ? (
                         <>
                           <span
@@ -720,13 +728,20 @@ export function EncounterLibrary({ onClose }: { onClose: () => void }) {
                           <span className="font-mono-stats text-text">
                             {difficulty.adjustedXp} adj XP
                           </span>
+                          {benchedCount > 0 && (
+                            <span className="text-amber">
+                              {fighting.length} fighting · {benchedCount} benched
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="text-muted">…</span>
                       )
                     ) : (
                       <span className="text-muted">
-                        Add party members to see difficulty
+                        {campaign?.party.length
+                          ? 'Everyone is benched — bring someone back under Players'
+                          : 'Add party members to see difficulty'}
                       </span>
                     )}
                   </div>

@@ -83,3 +83,50 @@ export function initiativeInsertIndex(
   }
   return list.length;
 }
+
+/** Combatants on a live tape still waiting for a number. */
+export function arrivalsAwaitingInitiative(combatants: Combatant[]): Combatant[] {
+  return combatants.filter((c) => c.initiative == null);
+}
+
+/**
+ * Hand reinforcements their initiative and drop each into the round.
+ *
+ * Only the named rows move. Everyone else keeps the place they hold —
+ * hand-ordering included — and whoever's turn it is keeps the turn, so a
+ * reinforcement arriving above the current actor does not hand the round on.
+ * This is the mid-fight counterpart to Start combat: that one asks the whole
+ * table for a number, this one asks only the creatures that just walked in.
+ */
+export function seatArrivals(
+  combatants: Combatant[],
+  turnIndex: number,
+  initiatives: Record<string, number>,
+): { combatants: Combatant[]; turnIndex: number } {
+  const actorId = combatants[turnIndex]?.id;
+  const arrivals: Combatant[] = [];
+  const seated: Combatant[] = [];
+  for (const c of combatants) {
+    if (Object.prototype.hasOwnProperty.call(initiatives, c.id)) {
+      arrivals.push({ ...c, initiative: initiatives[c.id]! });
+    } else {
+      seated.push(c);
+    }
+  }
+  if (arrivals.length === 0) return { combatants, turnIndex };
+
+  let next = seated;
+  for (const arrival of arrivals) {
+    const at = initiativeInsertIndex(next, arrival.initiative);
+    next = [...next.slice(0, at), arrival, ...next.slice(at)];
+  }
+
+  const actorAt = actorId ? next.findIndex((c) => c.id === actorId) : -1;
+  return {
+    combatants: next,
+    turnIndex:
+      actorAt >= 0
+        ? actorAt
+        : Math.min(turnIndex, Math.max(0, next.length - 1)),
+  };
+}

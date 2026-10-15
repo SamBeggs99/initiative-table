@@ -1,7 +1,7 @@
 import {
   ABILITY_LABELS,
   abilityBonusOf,
-  formatAbilityScore,
+  formatAbility,
   formatModifier,
   proficiencyBonusFromCr,
 } from '../../lib/statblock-derived';
@@ -225,7 +225,9 @@ export function StatBlockPreview({
           return (
             <div key={ab}>
               <div className="text-muted">{ABILITY_LABELS[ab]}</div>
-              <div className="text-text">{formatAbilityScore(abs[ab], bonus)}</div>
+              <div className="text-text">
+                {formatAbility(abs[ab], form.abilityStyle, bonus)}
+              </div>
               <AbilityBonusNudge
                 bonus={bonus}
                 onAdjust={

@@ -155,6 +155,158 @@ describe('a fight, start to finish', () => {
     useStore.getState().clearEncounter();
     expect(sheetHp()).toBe(before);
   });
+
+  it('benches a PC mid-fight, keeps the sheet, and seats them again on return', () => {
+    seatCampaign();
+    const pcId = useStore.getState().createBlankPartyMember('Vera');
+    useStore.getState().patchPartySheet(pcId, { maxHp: 30 });
+    useStore.getState().patchPartyLive(pcId, { currentHp: 30 });
+    const otherId = useStore.getState().createBlankPartyMember('Dain');
+    useStore.getState().syncPartyToTape();
+    addMonster('Ogre', 59);
+    useStore.getState().startCombat();
+
+    const row = combat().combatants.find((c) => c.sourcePartyMemberId === pcId)!;
+    useStore.getState().applyDamage(row.id, 11);
+
+    useStore.getState().setPartyMemberBenched(pcId, true);
+
+    // Off the tape, still on the roster, holding the damage they took.
+    expect(byName('Vera')).toBeUndefined();
+    const sheet = () =>
+      useStore.getState().getActiveCampaign()!.party.find((p) => p.id === pcId)!;
+    expect(sheet().benched).toBe(true);
+    expect(sheet().currentHp).toBe(19);
+    expect(sheet().maxHp).toBe(30);
+    expect(byName('Dain')).toBeDefined();
+
+    // A sync must not quietly put them back.
+    useStore.getState().syncPartyToTape();
+    expect(byName('Vera')).toBeUndefined();
+
+    useStore.getState().setPartyMemberBenched(pcId, false);
+    expect(byName('Vera')?.hp).toBe(19);
+    expect(sheet().benched).toBeUndefined();
+    expect(otherId).not.toBe(pcId);
+  });
+
+  it('removing a PC row benches them rather than deleting the character', () => {
+    seatCampaign();
+    const pcId = useStore.getState().createBlankPartyMember('Vera');
+    useStore.getState().syncPartyToTape();
+    const row = combat().combatants.find((c) => c.sourcePartyMemberId === pcId)!;
+
+    useStore.getState().removeCombatant(row.id);
+
+    expect(byName('Vera')).toBeUndefined();
+    const party = useStore.getState().getActiveCampaign()!.party;
+    expect(party).toHaveLength(1);
+    expect(party[0]!.benched).toBe(true);
+
+    // "To combat" on a benched PC is the DM saying they are back.
+    useStore.getState().addPartyMemberToCombat(pcId);
+    expect(byName('Vera')).toBeDefined();
+    expect(
+      useStore.getState().getActiveCampaign()!.party[0]!.benched,
+    ).toBeUndefined();
+  });
+
+  it('adds reinforcements mid-fight without re-asking the table for initiative', () => {
+    seatCampaign();
+    useStore.getState().createBlankPartyMember('Aria');
+    useStore.getState().syncPartyToTape();
+    const ogre = addMonster('Ogre', 59);
+    useStore.getState().startCombat({
+      [ogre]: 12,
+      [combat().combatants.find((c) => c.name === 'Aria')!.id]: 19,
+    });
+
+    const before = combat().combatants.map((c) => [c.name, c.initiative]);
+    const actor = combat().combatants[combat().turnIndex]!.name;
+
+    // A wolf walks in with no count of its own.
+    const wolf = addMonster('Wolf', 11);
+    expect(byName('Wolf')?.initiative).toBeNull();
+    // It waits at the bottom rather than cutting into the round.
+    expect(combat().combatants.at(-1)!.name).toBe('Wolf');
+
+    useStore.getState().seatArrivals({ [wolf]: 25 });
+
+    // The wolf takes its place; nobody else was re-rolled or re-ordered.
+    expect(combat().combatants.map((c) => c.name)).toEqual([
+      'Wolf',
+      'Aria',
+      'Ogre',
+    ]);
+    for (const [name, init] of before) {
+      expect(byName(name as string)?.initiative).toBe(init);
+    }
+    // And the turn did not hand on to the newcomer above it.
+    expect(combat().combatants[combat().turnIndex]!.name).toBe(actor);
+  });
+
+  it('knocks out rather than kills, and revives back to 1 HP', () => {
+    seatCampaign();
+    const pcId = useStore.getState().createBlankPartyMember('Vera');
+    useStore.getState().patchPartySheet(pcId, { maxHp: 30 });
+    useStore.getState().patchPartyLive(pcId, { currentHp: 30 });
+    useStore.getState().syncPartyToTape();
+    const ogre = addMonster('Ogre', 20);
+
+    useStore.getState().applyDamage(ogre, 25, { nonLethal: true });
+    expect(byName('Ogre')?.hp).toBe(0);
+    expect(byName('Ogre')?.unconscious).toBe(true);
+
+    // Undo puts the knockout back as it was, not just the HP.
+    useStore.getState().undoLast();
+    expect(byName('Ogre')?.hp).toBe(20);
+    expect(byName('Ogre')?.unconscious).toBeFalsy();
+
+    // A hero dropped by a pulled punch is stable, so no death saves run.
+    const row = combat().combatants.find((c) => c.sourcePartyMemberId === pcId)!;
+    useStore.getState().applyDamage(row.id, 40, { nonLethal: true });
+    expect(byName('Vera')?.hp).toBe(0);
+    expect(byName('Vera')?.unconscious).toBe(true);
+    useStore.getState().rollDeathSave(row.id);
+    expect(byName('Vera')?.deathSaves).toEqual({ successes: 0, failures: 0 });
+
+    useStore.getState().reviveCombatant(row.id);
+    expect(byName('Vera')?.hp).toBe(1);
+    expect(byName('Vera')?.unconscious).toBe(false);
+  });
+
+  it('a lethal blow on someone out cold finishes them', () => {
+    seatCampaign();
+    const ogre = addMonster('Ogre', 20);
+    useStore.getState().applyDamage(ogre, 25, { nonLethal: true });
+    expect(byName('Ogre')?.unconscious).toBe(true);
+
+    useStore.getState().applyDamage(ogre, 5);
+    expect(byName('Ogre')?.hp).toBe(0);
+    expect(byName('Ogre')?.unconscious).toBe(false);
+
+    useStore.getState().reviveCombatant(ogre, 4);
+    expect(byName('Ogre')?.hp).toBe(4);
+  });
+
+  it('keeps the turn on the same combatant when someone else is benched', () => {
+    seatCampaign();
+    const first = useStore.getState().createBlankPartyMember('Aria');
+    useStore.getState().createBlankPartyMember('Dain');
+    useStore.getState().syncPartyToTape();
+    addMonster('Ogre', 59);
+    useStore.getState().startCombat();
+
+    // Park the turn on someone after Aria, then bench Aria from above them.
+    const order = combat().combatants.map((c) => c.name);
+    const target = order[order.length - 1]!;
+    while (combat().combatants[combat().turnIndex]!.name !== target) {
+      useStore.getState().nextTurn();
+    }
+
+    useStore.getState().setPartyMemberBenched(first, true);
+    expect(combat().combatants[combat().turnIndex]!.name).toBe(target);
+  });
 });
 
 describe('sync bookkeeping', () => {

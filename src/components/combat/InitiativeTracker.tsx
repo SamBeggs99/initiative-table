@@ -21,6 +21,7 @@ import { hitEffect } from '../../lib/hit-effects';
 import { resolveHpField, applyTempHp } from '../../lib/combat';
 import { resolveCombatantPortrait } from '../../lib/portrait';
 import { spendActionsRemaining, type ActionCost } from '../../lib/pf2e-actions';
+import { arrivalsAwaitingInitiative } from '../../lib/turn-order';
 import type { Entry } from '../../types';
 import { LazyOverlay } from '../ui/LazyOverlay';
 import { BloomCluster } from '../ornament/Botanical';
@@ -85,6 +86,9 @@ export function InitiativeTracker({
   const applyHealing = useStore((s) => s.applyHealing);
   const setTempHp = useStore((s) => s.setTempHp);
   const removeCombatant = useStore((s) => s.removeCombatant);
+  const setPartyMemberBenched = useStore((s) => s.setPartyMemberBenched);
+  const seatArrivals = useStore((s) => s.seatArrivals);
+  const reviveCombatant = useStore((s) => s.reviveCombatant);
   const rollDeathSave = useStore((s) => s.rollDeathSave);
   const addLairAction = useStore((s) => s.addLairAction);
   const addCondition = useStore((s) => s.addCondition);
@@ -99,7 +103,19 @@ export function InitiativeTracker({
   const form = adapter.statBlockForm;
   const sharedScreen = settings.sharedScreen;
   const partyCount = campaign?.party.length ?? 0;
+  const arrivals = useMemo(
+    () =>
+      combat.started ? arrivalsAwaitingInitiative(combat.combatants) : [],
+    [combat.started, combat.combatants],
+  );
 
+  const [arrivalsOpen, setArrivalsOpen] = useState(false);
+  /*
+   * Armed for the whole tracker, not the row it was clicked on: a subdual
+   * fight stays subdual without re-arming per blow. Deliberately not
+   * persisted — a mode you forgot is on should not survive a reload.
+   */
+  const [nonLethal, setNonLethal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(0);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -279,7 +295,7 @@ export function InitiativeTracker({
   }, [combat.combatants, pulseRow, pushLog]);
 
   const flashDamage = (id: string, n: number, type?: string) => {
-    applyDamage(id, n, type ? { type } : undefined);
+    applyDamage(id, n, { ...(type ? { type } : {}), nonLethal });
     pulseRow(id, type);
   };
 
@@ -417,7 +433,14 @@ export function InitiativeTracker({
 
       if (typing) return;
 
-      if (initiativePromptOpen || helpOpen || lootExit || libraryOpen || bulkOpen) {
+      if (
+        initiativePromptOpen ||
+        arrivalsOpen ||
+        helpOpen ||
+        lootExit ||
+        libraryOpen ||
+        bulkOpen
+      ) {
         return;
       }
 
@@ -508,6 +531,7 @@ export function InitiativeTracker({
     sharedScreen,
     pushToast,
     initiativePromptOpen,
+    arrivalsOpen,
     helpOpen,
     lootExit,
     libraryOpen,
@@ -801,6 +825,48 @@ export function InitiativeTracker({
       </div>
 
       {!sharedScreen && <ConcentrationBanner />}
+
+      {/*
+        A sticky mode has to be visible from outside the row it was armed on,
+        or the DM kills something they meant to capture.
+      */}
+      {!sharedScreen && nonLethal && (
+        <div className="mx-2 mb-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-amber/50 bg-amber/10 px-2.5 py-1.5 text-xs">
+          <span className="text-amber">
+            Non-lethal is armed — damage knocks out instead of killing
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm ml-auto"
+            onClick={() => setNonLethal(false)}
+          >
+            Back to lethal
+          </button>
+        </div>
+      )}
+
+      {/*
+        Reinforcements land at the bottom with a blank pill until the DM says
+        where they go. The bar is the prompt for that — asking only the
+        creatures that just walked in, never the whole table again.
+      */}
+      {!sharedScreen && combat.started && arrivals.length > 0 && (
+        <div className="mx-2 mb-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-amber/50 bg-amber/10 px-2.5 py-1.5 text-xs">
+          <span className="text-amber">
+            {arrivals.length === 1
+              ? `${arrivals[0]!.name} has no initiative yet`
+              : `${arrivals.length} arrivals have no initiative yet`}
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm btn-accent ml-auto"
+            onClick={() => setArrivalsOpen(true)}
+          >
+            Roll them in
+          </button>
+        </div>
+      )}
+
       <CombatLootPanel sharedScreen={sharedScreen} />
 
       <div className="parchment-roll parchment-roll-top" aria-hidden />
@@ -915,6 +981,12 @@ export function InitiativeTracker({
                   setModalOpen(true);
                 }}
                 onDeathSave={() => rollDeathSave(c.id)}
+                onRevive={() => {
+                  reviveCombatant(c.id);
+                  pulseRow(c.id, 'heal');
+                }}
+                nonLethal={nonLethal}
+                onNonLethalChange={setNonLethal}
                 onAddCondition={() => promptCondition(c.id)}
                 onRemoveCondition={(name) => removeCondition(c.id, name)}
                 onUseAction={(entry, cost) => applyCombatAction(c.id, entry, cost)}
@@ -994,18 +1066,28 @@ export function InitiativeTracker({
             type="button"
             className="btn btn-sm btn-danger"
             onClick={() => {
-              const removable = [...selectedIds].filter((id) => {
-                const c = combat.combatants.find((x) => x.id === id);
-                return !c?.sourcePartyMemberId;
-              });
-              if (removable.length === 0) {
-                pushToast(
-                  'Party members stay on the tracker — remove them under Players',
-                );
-                return;
+              const rows = [...selectedIds]
+                .map((id) => combat.combatants.find((x) => x.id === id))
+                .filter((c): c is NonNullable<typeof c> => Boolean(c));
+              if (rows.length === 0) return;
+              // PCs are benched, not deleted — their sheet stays under Players.
+              const benched = rows.filter((c) => c.sourcePartyMemberId);
+              for (const c of benched) {
+                setPartyMemberBenched(c.sourcePartyMemberId!, true, {
+                  silent: true,
+                });
               }
-              for (const id of removable) removeCombatant(id);
+              for (const c of rows) {
+                if (!c.sourcePartyMemberId) removeCombatant(c.id);
+              }
               setSelectedIds(new Set());
+              if (benched.length > 0) {
+                pushToast(
+                  benched.length === 1
+                    ? `${benched[0]!.name} benched — sheet kept under Players`
+                    : `${benched.length} characters benched — sheets kept under Players`,
+                );
+              }
             }}
           >
             Remove
@@ -1172,6 +1254,21 @@ export function InitiativeTracker({
           adapter={adapter}
           onClose={closeInitiativePrompt}
           onConfirm={(initiatives) => startCombat(initiatives)}
+        />
+      )}
+
+      {arrivalsOpen && arrivals.length > 0 && (
+        <InitiativePrompt
+          combatants={arrivals}
+          adapter={adapter}
+          title="Joining the fight"
+          intro="Only the new arrivals — everyone already in the round keeps the count they rolled, and the turn stays where it is."
+          confirmLabel="Join the round"
+          onClose={() => setArrivalsOpen(false)}
+          onConfirm={(initiatives) => {
+            seatArrivals(initiatives);
+            setArrivalsOpen(false);
+          }}
         />
       )}
 

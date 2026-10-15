@@ -59,6 +59,7 @@ export const pf2eAdapter: SystemAdapter = {
     showLegendaryBlock: false,
     showLegendaryResistance: false,
     showPf2eBlock: true,
+    abilityStyle: 'modifier',
   },
 
   initiative(c: Combatant): number {

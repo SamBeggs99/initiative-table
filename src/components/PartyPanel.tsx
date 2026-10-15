@@ -3,18 +3,25 @@ import { parseDamageField, applyTempHp } from '../lib/combat';
 import { hueHex, pcHueId } from '../lib/identity';
 import { importDdbJson } from '../lib/import/ddb';
 import { importPathbuilderJson } from '../lib/import/pathbuilder';
-import { formatAbilityScore } from '../lib/statblock-derived';
 import {
+  abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
+} from '../lib/statblock-derived';
+import {
+  activeParty,
   applyGearChange,
   applySheetPatch,
   blankPartyMember,
   formatLevelEntry,
+  isBenched,
   partyDisplayedHeroPoints,
   partyDisplayedHp,
   proficiencyBonusForLevel,
   spellSlotsFromClassTable,
 } from '../lib/party';
 import { useStore } from '../store';
+import { getSystemAdapter } from '../systems';
 import type { PartyMember } from '../types';
 import { emptySpellSlots } from '../types';
 import { Sprig } from './ornament/Botanical';
@@ -331,6 +338,11 @@ function SheetForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(() => structuredClone(member));
+  // A Pathfinder sheet prints "Dex +2" and never a score. Storage keeps a
+  // score either way; the style only decides what the DM reads and types, and
+  // +N round-trips through the even score 10 + 2N without losing anything.
+  const abilityStyle = getSystemAdapter(system).statBlockForm.abilityStyle;
+  const dexAsModifier = abilityStyle === 'modifier';
 
   const setSheet = (patch: Parameters<typeof applySheetPatch>[1]) => {
     setDraft((d) => applySheetPatch(d, patch));
@@ -426,16 +438,24 @@ function SheetForm({
             />
           </label>
           <label className="block">
-            <span className="text-xs text-muted">Dex score</span>
+            <span className="text-xs text-muted">
+              {dexAsModifier ? 'Dex modifier' : 'Dex score'}
+            </span>
             <NumberField
-              min={1}
-              max={30}
+              min={dexAsModifier ? -5 : 1}
+              max={dexAsModifier ? 10 : 30}
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
-              value={draft.dex}
-              onChange={(n) => setSheet({ dex: n || 10 })}
+              value={dexAsModifier ? abilityModifier(draft.dex) : draft.dex}
+              onChange={(n) =>
+                setSheet({
+                  dex: dexAsModifier ? abilityScoreFromModifier(n) : n || 10,
+                })
+              }
             />
             <span className="mt-0.5 block font-mono-stats text-[10px] tabular-nums text-muted">
-              {formatAbilityScore(draft.dex)} — same formula for 5e and PF2e
+              {dexAsModifier
+                ? `Dex ${formatAbility(draft.dex, abilityStyle)}`
+                : `${formatAbility(draft.dex, abilityStyle)} — same formula for 5e and PF2e`}
             </span>
           </label>
           <label className="block">
@@ -517,14 +537,17 @@ function SheetForm({
 function ImportDialog({
   kind,
   campaignId,
+  system,
   onClose,
   onCommit,
 }: {
   kind: 'ddb' | 'pathbuilder';
   campaignId: string;
+  system: 'dnd5e' | 'pf2e';
   onClose: () => void;
   onCommit: (member: PartyMember) => void;
 }) {
+  const abilityStyle = getSystemAdapter(system).statBlockForm.abilityStyle;
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<{
@@ -632,7 +655,7 @@ function ImportDialog({
               <p className="text-muted">
                 L{review.member.level} {review.member.class} · AC {review.member.ac} ·
                 HP {review.member.currentHp}/{review.member.maxHp} · Dex{' '}
-                {formatAbilityScore(review.member.dex)}
+                {formatAbility(review.member.dex, abilityStyle)}
               </p>
               <p className="text-muted">
                 PP {review.member.passivePerception} · PI{' '}
@@ -683,6 +706,7 @@ function MemberDetail({
   onEditSheet,
   onLevelUp,
   onCombat,
+  onBench,
   onDelete,
   onClose,
 }: {
@@ -691,9 +715,11 @@ function MemberDetail({
   onEditSheet: () => void;
   onLevelUp: () => void;
   onCombat: () => void;
+  onBench: (benched: boolean) => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const benched = isBenched(member);
   const logLines = useMemo(() => {
     let prev = 0;
     return member.levelLog.map((e) => {
@@ -733,6 +759,11 @@ function MemberDetail({
             <div className="text-muted">
               Character · L{member.level}{' '}
               <span className="name-identity font-medium">{member.class}</span>
+              {benched && (
+                <span className="ml-1.5 text-amber" title="Off the tracker — sheet kept">
+                  · sitting out
+                </span>
+              )}
             </div>
             <div className="mt-0.5 text-[11px] text-accent">
               Player · {member.playerName || 'Not assigned'}
@@ -799,14 +830,26 @@ function MemberDetail({
           className="btn btn-sm btn-accent"
           onClick={onCombat}
         >
-          To combat
+          {benched ? 'Back to combat' : 'To combat'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          title={
+            benched
+              ? 'Put them back on the tracker at their current HP'
+              : 'Take them off the tracker — the sheet and its HP stay here'
+          }
+          onClick={() => onBench(!benched)}
+        >
+          {benched ? 'Rejoin party' : 'Bench'}
         </button>
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-muted hover:text-damage"
           onClick={onDelete}
         >
-          Remove
+          Delete
         </button>
       </div>
     </div>
@@ -824,6 +867,7 @@ export function PartyPanel() {
   const levelUpPartyMember = useStore((s) => s.levelUpPartyMember);
   const addPartyMemberToCombat = useStore((s) => s.addPartyMemberToCombat);
   const addWholePartyToCombat = useStore((s) => s.addWholePartyToCombat);
+  const setPartyMemberBenched = useStore((s) => s.setPartyMemberBenched);
   const shortRest = useStore((s) => s.shortRest);
   const longRest = useStore((s) => s.longRest);
 
@@ -876,8 +920,13 @@ export function PartyPanel() {
         )}
         <button
           type="button"
-          disabled={campaign.party.length === 0}
+          disabled={activeParty(campaign.party).length === 0}
           className="btn btn-accent"
+          title={
+            campaign.party.length > 0 && activeParty(campaign.party).length === 0
+              ? 'Everyone is benched'
+              : undefined
+          }
           onClick={addWholePartyToCombat}
         >
           All to combat
@@ -934,6 +983,7 @@ export function PartyPanel() {
         ) : (
           campaign.party.map((p) => {
             const live = partyDisplayedHp(p, combatants);
+            const benched = isBenched(p);
             return (
               <li key={p.id}>
                 <div
@@ -941,7 +991,7 @@ export function PartyPanel() {
                     selected?.id === p.id
                       ? 'border-accent/50 bg-accent/10 text-text'
                       : 'border-transparent text-text hover:border-border hover:bg-panel-2'
-                  }`}
+                  } ${benched ? 'opacity-60' : ''}`}
                   style={
                     {
                       '--identity': hueHex(pcHueId(p.class, p.name)),
@@ -976,9 +1026,17 @@ export function PartyPanel() {
                         >
                           {p.name}
                         </span>
+                        {/* The state leads: in a narrow rail the end of this
+                            line is what gets clipped, and "sitting out" is
+                            the part the DM has to be able to read. */}
                         <span className="block truncate text-[10px] text-muted">
+                          {benched && (
+                            <span className="text-amber">Sitting out · </span>
+                          )}
                           {p.playerName || 'Player not assigned'}
-                          {live.inCombat && combatStarted ? ' · fighting' : ''}
+                          {!benched && live.inCombat && combatStarted
+                            ? ' · fighting'
+                            : ''}
                         </span>
                       </span>
                       <span className="shrink-0 text-right font-mono-stats text-[10px] tabular-nums">
@@ -1014,15 +1072,16 @@ export function PartyPanel() {
           onEditSheet={() => setSheetEdit(selected)}
           onLevelUp={() => setLevelUpId(selected.id)}
           onCombat={() => addPartyMemberToCombat(selected.id)}
+          onBench={(b) => setPartyMemberBenched(selected.id, b)}
           onDelete={() => setPendingDelete(true)}
         />
       )}
 
       {pendingDelete && selected && (
         <ConfirmDialog
-          title="Remove character?"
-          message={`Remove ${selected.name} from the party?`}
-          confirmLabel="Remove"
+          title="Delete character?"
+          message={`Delete ${selected.name}'s sheet, HP and level log for good? To take them out of the fight for a while, bench them instead.`}
+          confirmLabel="Delete"
           danger
           onCancel={() => setPendingDelete(false)}
           onConfirm={() => {
@@ -1083,6 +1142,7 @@ export function PartyPanel() {
         <ImportDialog
           kind={importKind}
           campaignId={campaign.id}
+          system={campaign.system}
           onClose={() => setImportKind(null)}
           onCommit={(member) => {
             upsertPartyMember(member);

@@ -10,6 +10,7 @@ import {
   abilityBonusOf,
   abilityKeys,
   abilityModifier,
+  abilityScoreFromModifier,
   adjustAbilityBonus,
   blankStatBlock,
   draftFromImport,
@@ -579,31 +580,43 @@ export function CreatureEditor({
                 Ability scores
               </h3>
               <p className="text-[11px] leading-snug text-muted">
-                Same for D&amp;D 5e and Pathfinder 2e: enter the score (not the
-                modifier). 10 = +0, 9 = −1, 16 = +3. Use +1 under a score for a
-                hand-applied modifier — it does not change the printed number.
+                {form.abilityStyle === 'modifier'
+                  ? 'Enter the modifier exactly as the stat block prints it — Strength +4 is 4. Pathfinder creatures have no ability scores. Use +1 underneath for a hand-applied modifier on top; it does not change the printed number.'
+                  : 'Enter the score, not the modifier. 10 = +0, 9 = −1, 16 = +3. Use +1 under a score for a hand-applied modifier — it does not change the printed number.'}
               </p>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {abilityKeys().map((ab) => {
                   const bonus = abilityBonusOf(draft.abilityBonuses, ab);
                   const id = `ability-${ab}`;
+                  // PF2e: the field *is* the modifier. Storage keeps a score
+                  // for both systems, and +N round-trips through the even
+                  // score 10 + 2N without losing anything.
+                  const asModifier = form.abilityStyle === 'modifier';
+                  const printed = asModifier
+                    ? abilityModifier(draft.abilities[ab])
+                    : draft.abilities[ab];
                   return (
                     <div key={ab} className="block text-xs text-muted">
                       <label htmlFor={id}>{ABILITY_LABELS[ab]}</label>
                       <NumberField
                         id={id}
-                        min={1}
-                        max={30}
+                        min={asModifier ? -5 : 1}
+                        max={asModifier ? 10 : 30}
                         className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
-                        value={draft.abilities[ab]}
+                        value={printed}
                         onChange={(n) =>
-                          patchAbility(ab, n)
+                          patchAbility(
+                            ab,
+                            asModifier ? abilityScoreFromModifier(n) : n,
+                          )
                         }
                       />
                       <span className="font-mono-stats text-[10px] tabular-nums text-muted">
-                        {formatModifier(
-                          abilityModifier(draft.abilities[ab]) + bonus,
-                        )}
+                        {asModifier && bonus === 0
+                          ? ''
+                          : formatModifier(
+                              abilityModifier(draft.abilities[ab]) + bonus,
+                            )}
                       </span>
                       <AbilityBonusNudge
                         bonus={bonus}

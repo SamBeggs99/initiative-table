@@ -33,11 +33,15 @@ function applyTurnStart(
  * A downed PC is the opposite case: at 0 HP they are dying, not gone, and their
  * turn is exactly when death saves happen. Never skip them.
  *
+ * A PC who is out cold is the exception to that exception — knocked out by
+ * non-lethal damage, they are stable with nothing to roll, so stopping on
+ * them each round is the same friction as stopping on a corpse.
+ *
  * Lair actions have no HP to lose and always act.
  */
 export function isSkippableTurn(c: Combatant): boolean {
-  if (c.kind === 'pc') return false;
   if (c.kind === 'lair') return false;
+  if (c.kind === 'pc') return c.hp <= 0 && c.unconscious === true;
   return c.hp <= 0;
 }
 

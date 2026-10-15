@@ -14,11 +14,18 @@ import { useRollAnimation } from '../ui/useRollAnimation';
 export function InitiativePrompt({
   combatants,
   adapter,
+  title = 'Initiative',
+  intro = 'Enter everyone’s total, or roll. Ctrl+Enter starts when every row has a number.',
+  confirmLabel = 'Start combat',
   onConfirm,
   onClose,
 }: {
   combatants: Combatant[];
   adapter: Pick<SystemAdapter, 'initiative'>;
+  /** Mid-fight reinforcements reuse this form for just the arrivals. */
+  title?: string;
+  intro?: string;
+  confirmLabel?: string;
   onConfirm: (initiatives: Record<string, number>) => void;
   onClose: () => void;
 }) {
@@ -89,7 +96,7 @@ export function InitiativePrompt({
 
   return (
     <Modal
-      title="Initiative"
+      title={title}
       onClose={onClose}
       size="lg"
       variant="glass"
@@ -116,15 +123,12 @@ export function InitiativePrompt({
             disabled={!ready || anyBusy}
             onClick={submit}
           >
-            Start combat
+            {confirmLabel}
           </button>
         </>
       }
     >
-      <p className="mb-3 text-xs leading-relaxed text-muted">
-        Enter everyone’s total, or roll. Ctrl+Enter starts when every row has a
-        number.
-      </p>
+      <p className="mb-3 text-xs leading-relaxed text-muted">{intro}</p>
       <ul className="max-h-[min(60vh,28rem)] space-y-1 overflow-auto px-1 py-2">
         {rows.map((row, index) => {
           const phase = phaseOf(row.key);

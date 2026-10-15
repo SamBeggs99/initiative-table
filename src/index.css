@@ -2081,6 +2081,21 @@ html[data-theme='night'] {
     animation: none;
   }
 
+  /*
+   * Out cold is not death and must not read as it: no grey-out, no
+   * strike-through, and a steady amber rail rather than the dying breath.
+   * Knocked out is a situation to resolve after the fight, so the row stays
+   * legible — the DM still needs their AC and HP to wake or finish them.
+   */
+  .row-out-cold {
+    box-shadow: inset 4px 0 0 0 color-mix(in srgb, var(--color-amber) 70%, transparent);
+    opacity: 0.85;
+  }
+
+  .row-active.row-out-cold {
+    box-shadow: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     /* Substitute a steady rail for the breath — the cue stays, the pulse goes. */
     .row-downed {

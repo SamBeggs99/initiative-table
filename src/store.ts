@@ -13,6 +13,7 @@ import { applyInitiativeMap } from './lib/initiative-prompt';
 import {
   applyDamage as applyDamagePure,
   applyHealing as applyHealingPure,
+  revive as revivePure,
   setTempHp as setTempHpPure,
 } from './lib/damage';
 import { rollExpression } from './lib/dice';
@@ -25,6 +26,7 @@ import {
   initiativeForSlot,
   initiativeInsertIndex,
   moveInOrder,
+  seatArrivals,
 } from './lib/turn-order';
 import { getSystemAdapter } from './systems';
 import type {
@@ -46,15 +48,18 @@ import type {
 import { createCombatant, emptyCombatState, UNDO_STACK_LIMIT } from './types';
 import { applyNpcHpWriteBack, npcFromStatBlock } from './lib/npc';
 import {
+  activeParty,
   adjustPartyLiveHp,
   applyLevelUp,
   applyLivePatch,
   applyPartyLiveWriteBack,
   applySheetPatch,
+  benchPartyMember,
   blankPartyMember,
   clampHeroPoints,
   combatantLinkedToParty,
   HERO_POINT_SESSION_START,
+  isBenched,
   isPartyMemberInCombat,
   longRestCombatant,
   longRestPartyMember,
@@ -65,6 +70,7 @@ import {
   ensurePartyCombatants,
   restPartyForNextFight,
   shortRestCombatant,
+  unbenchPartyMember,
   type LevelUpInput,
   type PartyLivePatch,
   type PartySheetPatch,
@@ -171,7 +177,7 @@ function applyPartyToCombatants(
     if (synced !== row) sheetChanged = true;
     return synced;
   });
-  if (added.length === 0 && removed === 0 && !sheetChanged) {
+  if (added.length === 0 && removed.length === 0 && !sheetChanged) {
     return { combatants, changed: false };
   }
   return { combatants: next, changed: true };
@@ -488,7 +494,11 @@ export interface AppState {
   addCombatant: (combatant: Combatant) => void;
   removeCombatant: (id: string) => void;
   updateCombatant: (id: string, patch: Partial<Combatant>) => void;
-  applyDamage: (id: string, amount: number, opts?: { type?: string }) => void;
+  applyDamage: (
+    id: string,
+    amount: number,
+    opts?: { type?: string; nonLethal?: boolean },
+  ) => void;
   /**
    * One hit that lands as several typed clauses ("2d6 slashing plus 1d6 fire").
    * Resistance is read per part; undo, the HP write and the concentration DC
@@ -497,8 +507,15 @@ export interface AppState {
   applyDamageParts: (
     id: string,
     parts: { amount: number; type?: string }[],
+    opts?: { nonLethal?: boolean },
   ) => void;
   applyHealing: (id: string, amount: number) => void;
+  /**
+   * Put someone back on their feet at `hp` (1 by default), clearing death
+   * saves, the PF2e dying counter and a knockout. The deliberate way back
+   * from 0 for a dropped enemy or a downed hero.
+   */
+  reviveCombatant: (id: string, hp?: number) => void;
   setTempHp: (id: string, amount: number) => void;
   rollDeathSave: (id: string) => void;
   addLairAction: () => void;
@@ -518,6 +535,12 @@ export interface AppState {
    * are filled from settings.initiativeMode (tests / programmatic start).
    */
   startCombat: (initiatives?: Record<string, number>) => void;
+  /**
+   * Give reinforcements their initiative mid-fight and drop them into the
+   * round. Nobody already on the tape is re-rolled, re-sorted or re-asked,
+   * and the current actor keeps the turn.
+   */
+  seatArrivals: (initiatives: Record<string, number>) => void;
   endCombat: () => void;
   sortByInitiative: () => void;
   /**
@@ -575,6 +598,18 @@ export interface AppState {
   levelUpPartyMember: (id: string, input: LevelUpInput) => void;
   addPartyMemberToCombat: (id: string) => void;
   addWholePartyToCombat: () => void;
+  /**
+   * Sit a character out, or bring them back. Benching writes their live HP to
+   * the sheet and takes the row off the tracker; the character is still on the
+   * roster, so this is the non-destructive answer to "they're not in this one".
+   * `silent` skips the toast — for callers benching several at once that say
+   * so themselves.
+   */
+  setPartyMemberBenched: (
+    id: string,
+    benched: boolean,
+    opts?: { silent?: boolean },
+  ) => void;
 
   /**
    * Mark local state as matching the cloud row stamped `remoteUpdatedAt`.
@@ -740,17 +775,28 @@ export const useStore = create<AppState>()(
         if (!activeCampaignId) return;
         const campaign = getActiveCampaign();
         if (!campaign) return;
+        const before = getActiveCombat();
         const { combatants, changed } = applyPartyToCombatants(
-          getActiveCombat().combatants,
+          before.combatants,
           campaign.party,
           campaign.system,
         );
         if (!changed) return;
+        // Benching drops a row, so the turn pointer has to follow whoever is
+        // actually acting — an index alone slides onto the wrong combatant.
+        const actorId = before.combatants[before.turnIndex]?.id;
+        const stillSeated = actorId
+          ? combatants.findIndex((c) => c.id === actorId)
+          : -1;
+        const turnIndex =
+          stillSeated >= 0
+            ? stillSeated
+            : Math.min(before.turnIndex, Math.max(0, combatants.length - 1));
         set((s) => ({
           combatByCampaign: patchActiveCombat(
             s.combatByCampaign,
             activeCampaignId,
-            { combatants },
+            { combatants, turnIndex },
           ),
         }));
       },
@@ -945,16 +991,19 @@ export const useStore = create<AppState>()(
           lastRunAt: Date.now(),
         });
 
+        const atTable = activeParty(campaign.party).length;
         const partyNote =
           missing.length > 0
             ? ` + ${missing.length} party member${missing.length === 1 ? '' : 's'}`
-            : campaign.party.length > 0
+            : atTable > 0
               ? ' (party already on the tape)'
               : '';
         get().pushLog(`Loaded encounter “${encounter.name}”${partyNote}`, 'system');
         get().pushToast(
-          campaign.party.length === 0
-            ? `Loaded “${encounter.name}” — add player characters under Players`
+          atTable === 0
+            ? campaign.party.length > 0
+              ? `Loaded “${encounter.name}” — everyone is benched, bring someone back under Players`
+              : `Loaded “${encounter.name}” — add player characters under Players`
             : liveLoot.length > 0
               ? `Loaded “${encounter.name}” — ${liveLoot.length} loot line${liveLoot.length === 1 ? '' : 's'} ready to award after the fight`
               : `Loaded “${encounter.name}” with your party — Start combat when ready`,
@@ -1071,9 +1120,10 @@ export const useStore = create<AppState>()(
           target?.sourcePartyMemberId &&
           campaign?.party.some((p) => p.id === target.sourcePartyMemberId)
         ) {
-          get().pushToast(
-            'Party members stay on the tracker — remove them under Players',
-          );
+          // Taking a PC off the tracker benches them: the sheet, its live HP
+          // and the level log all stay put under Players. Deleting a character
+          // is a separate, deliberate act over there.
+          get().setPartyMemberBenched(target.sourcePartyMemberId, true);
           return;
         }
         set((s) => ({
@@ -1108,10 +1158,12 @@ export const useStore = create<AppState>()(
       },
 
       applyDamage: (id, amount, opts) => {
-        get().applyDamageParts(id, [{ amount, type: opts?.type }]);
+        get().applyDamageParts(id, [{ amount, type: opts?.type }], {
+          nonLethal: opts?.nonLethal,
+        });
       },
 
-      applyDamageParts: (id, parts) => {
+      applyDamageParts: (id, parts, opts) => {
         const { activeCampaignId, getActiveCombat } = get();
         if (!activeCampaignId) return;
         const target = getActiveCombat().combatants.find((c) => c.id === id);
@@ -1132,9 +1184,12 @@ export const useStore = create<AppState>()(
           hp: target.hp,
           tempHp: target.tempHp,
           deathSaves: { ...target.deathSaves },
+          unconscious: target.unconscious,
           kind: 'damage',
         };
-        const next = applyDamagePure(target, dealt);
+        const next = applyDamagePure(target, dealt, {
+          nonLethal: opts?.nonLethal,
+        });
 
         // RAW: taking damage forces the save even when temp HP absorbs all of
         // it, and the DC is read off damage dealt rather than HP lost.
@@ -1171,9 +1226,42 @@ export const useStore = create<AppState>()(
             ? ` (${resolved.map(describe).join(' + ')})`
             : '';
         const head = resolved.length > 1 ? `${dealt}` : describe(resolved[0]!);
+        const pulled = opts?.nonLethal ? ' non-lethal' : '';
+        const knockout =
+          next.unconscious && !target.unconscious ? ' — out cold' : '';
         get().pushLog(
-          `${target.name} takes ${head} damage${breakdown} → ${next.hp}/${target.maxHp}`,
+          `${target.name} takes ${head}${pulled} damage${breakdown} → ${next.hp}/${target.maxHp}${knockout}`,
           'damage',
+        );
+      },
+
+      reviveCombatant: (id, hp = 1) => {
+        const { activeCampaignId, getActiveCombat } = get();
+        if (!activeCampaignId) return;
+        const target = getActiveCombat().combatants.find((c) => c.id === id);
+        if (!target) return;
+        if (target.hp > 0) {
+          get().pushToast(`${target.name} is already up`);
+          return;
+        }
+        const next = revivePure(target, hp);
+        set((s) => ({
+          concentrationPrompt:
+            s.concentrationPrompt?.combatantId === id ? null : s.concentrationPrompt,
+          combatByCampaign: patchActiveCombat(
+            s.combatByCampaign,
+            activeCampaignId,
+            (c) => ({
+              ...c,
+              combatants: c.combatants.map((x) =>
+                x.id === id ? { ...x, ...next } : x,
+              ),
+            }),
+          ),
+        }));
+        get().pushLog(
+          `${target.name} is back up → ${next.hp}/${target.maxHp}`,
+          'heal',
         );
       },
 
@@ -1189,6 +1277,7 @@ export const useStore = create<AppState>()(
           hp: target.hp,
           tempHp: target.tempHp,
           deathSaves: { ...target.deathSaves },
+          unconscious: target.unconscious,
           kind: 'heal',
         };
         const next = applyHealingPure(target, amount);
@@ -1218,6 +1307,7 @@ export const useStore = create<AppState>()(
           hp: target.hp,
           tempHp: target.tempHp,
           deathSaves: { ...target.deathSaves },
+          unconscious: target.unconscious,
           kind: 'temp',
         };
         const tempHp = setTempHpPure(amount);
@@ -1237,6 +1327,12 @@ export const useStore = create<AppState>()(
         if (!activeCampaignId) return;
         const target = getActiveCombat().combatants.find((c) => c.id === id);
         if (!target || target.kind !== 'pc' || target.hp > 0) return;
+        // Knocked out is stable: nothing to roll, however the save is reached
+        // (row button, shortcut, command palette).
+        if (target.unconscious) {
+          get().pushToast(`${target.name} is out cold, not dying`);
+          return;
+        }
 
         const roll = rollExpression('d20').total;
         const outcome = resolveDeathSave(target.deathSaves, roll);
@@ -1478,6 +1574,35 @@ export const useStore = create<AppState>()(
         for (const entry of logs) {
           get().pushLog(entry.message, entry.kind);
         }
+      },
+
+      seatArrivals: (initiatives) => {
+        const { activeCampaignId, getActiveCombat } = get();
+        if (!activeCampaignId) return;
+        const joining = getActiveCombat().combatants.filter((c) =>
+          Object.prototype.hasOwnProperty.call(initiatives, c.id),
+        );
+        if (joining.length === 0) return;
+        set((s) => ({
+          combatByCampaign: patchActiveCombat(
+            s.combatByCampaign,
+            activeCampaignId,
+            (c) => {
+              const { combatants, turnIndex } = seatArrivals(
+                c.combatants,
+                c.turnIndex,
+                initiatives,
+              );
+              return { ...c, combatants, turnIndex };
+            },
+          ),
+        }));
+        get().pushLog(
+          `Joined the round — ${joining
+            .map((c) => `${c.name} on ${initiatives[c.id]}`)
+            .join(', ')}`,
+          'turn',
+        );
       },
 
       endCombat: () => {
@@ -1749,6 +1874,7 @@ export const useStore = create<AppState>()(
                     hp: snapshot.hp,
                     tempHp: snapshot.tempHp,
                     deathSaves: snapshot.deathSaves,
+                    unconscious: snapshot.unconscious,
                   }
                 : x,
             ),
@@ -2112,12 +2238,22 @@ export const useStore = create<AppState>()(
           get().pushToast(`${member.name} is already in combat`);
           return;
         }
+        // Sending a benched PC to the fight is the DM saying they are back —
+        // seating them while still benched would only bounce them off again.
+        if (isBenched(member)) {
+          get().setPartyMemberBenched(id, false);
+          return;
+        }
         get().addCombatant(partyMemberToCombatant(member));
       },
 
       addWholePartyToCombat: () => {
         const campaign = get().getActiveCampaign();
         if (!campaign || campaign.party.length === 0) return;
+        if (activeParty(campaign.party).length === 0) {
+          get().pushToast('Everyone is benched — bring someone back first');
+          return;
+        }
         const before = get().getActiveCombat().combatants.length;
         get().syncPartyToTape();
         const after = get().getActiveCombat().combatants.length;
@@ -2129,6 +2265,42 @@ export const useStore = create<AppState>()(
           `Added ${after - before} party member${after - before === 1 ? '' : 's'} to the tracker`,
           'system',
         );
+      },
+
+      setPartyMemberBenched: (id, benched, opts) => {
+        const { activeCampaignId, getActiveCampaign, getActiveCombat } = get();
+        if (!activeCampaignId) return;
+        const campaign = getActiveCampaign();
+        const member = campaign?.party.find((p) => p.id === id);
+        if (!member || isBenched(member) === benched) return;
+
+        if (!benched) {
+          // upsert syncs the tape, which seats them again at sheet HP.
+          get().upsertPartyMember(unbenchPartyMember(member));
+          get().pushLog(`${member.name} rejoins the party`, 'system');
+          return;
+        }
+
+        const seated = combatantLinkedToParty(id, getActiveCombat().combatants);
+        // Live HP lands on the sheet before the row leaves — a PC benched at
+        // 7/40 comes back at 7/40, not topped up.
+        get().upsertPartyMember(benchPartyMember(member, seated));
+        set((s) => ({
+          concentrationPrompt:
+            s.concentrationPrompt?.combatantId === seated?.id
+              ? null
+              : s.concentrationPrompt,
+          undoStack: seated
+            ? s.undoStack.filter((u) => u.combatantId !== seated.id)
+            : s.undoStack,
+        }));
+        get().pushLog(
+          `${member.name} sits out — sheet kept under Players`,
+          'system',
+        );
+        if (!opts?.silent) {
+          get().pushToast(`${member.name} benched — sheet kept under Players`);
+        }
       },
     }),
     {

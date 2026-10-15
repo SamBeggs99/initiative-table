@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  arrivalsAwaitingInitiative,
   initiativeForSlot,
   initiativeInsertIndex,
   moveInOrder,
+  seatArrivals,
 } from './turn-order';
+import { createCombatant } from '../types';
+import type { Combatant } from '../types';
 
 describe('moveInOrder', () => {
   it('moves an item down to the target slot', () => {
@@ -87,5 +91,69 @@ describe('initiativeInsertIndex', () => {
 
   it('handles an empty tape', () => {
     expect(initiativeInsertIndex([], 12)).toBe(0);
+  });
+});
+
+describe('seatArrivals', () => {
+  const tape = (): Combatant[] => [
+    createCombatant({ name: 'Kaelen', kind: 'pc', initiative: 20 }),
+    createCombatant({ name: 'Goblin A', kind: 'npc', initiative: 15 }),
+    createCombatant({ name: 'Sable', kind: 'pc', initiative: 8 }),
+    createCombatant({ name: 'Ogre', kind: 'npc', initiative: null }),
+  ];
+
+  it('finds the rows still waiting on a number', () => {
+    expect(arrivalsAwaitingInitiative(tape()).map((c) => c.name)).toEqual([
+      'Ogre',
+    ]);
+    expect(arrivalsAwaitingInitiative([])).toEqual([]);
+  });
+
+  it('drops an arrival into place without touching anyone else', () => {
+    const list = tape();
+    const ogre = list[3]!;
+    const { combatants } = seatArrivals(list, 0, { [ogre.id]: 17 });
+
+    expect(combatants.map((c) => c.name)).toEqual([
+      'Kaelen',
+      'Ogre',
+      'Goblin A',
+      'Sable',
+    ]);
+    // The counts already rolled are left exactly as they were.
+    expect(combatants.map((c) => c.initiative)).toEqual([20, 17, 15, 8]);
+  });
+
+  it('keeps the turn on the current actor when an arrival lands above them', () => {
+    const list = tape();
+    const ogre = list[3]!;
+    // Sable is acting, at index 2.
+    const { combatants, turnIndex } = seatArrivals(list, 2, { [ogre.id]: 25 });
+    expect(combatants[turnIndex]!.name).toBe('Sable');
+    expect(turnIndex).toBe(3);
+  });
+
+  it('seats several arrivals at once, ties last among equals', () => {
+    const list = tape();
+    const ogre = list[3]!;
+    const wolf = createCombatant({ name: 'Wolf', kind: 'npc', initiative: null });
+    const { combatants } = seatArrivals([...list, wolf], 0, {
+      [ogre.id]: 15,
+      [wolf.id]: 15,
+    });
+    expect(combatants.map((c) => c.name)).toEqual([
+      'Kaelen',
+      'Goblin A',
+      'Ogre',
+      'Wolf',
+      'Sable',
+    ]);
+  });
+
+  it('is a no-op when nothing is joining', () => {
+    const list = tape();
+    const result = seatArrivals(list, 1, {});
+    expect(result.combatants).toBe(list);
+    expect(result.turnIndex).toBe(1);
   });
 });

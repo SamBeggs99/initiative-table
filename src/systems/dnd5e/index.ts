@@ -32,6 +32,7 @@ export const dnd5eAdapter: SystemAdapter = {
     showLegendaryBlock: true,
     showLegendaryResistance: true,
     showPf2eBlock: false,
+    abilityStyle: 'score',
   },
 
   initiative(c: Combatant): number {

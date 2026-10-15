@@ -181,6 +181,14 @@ export interface Combatant {
   statBlock?: StatBlock;
   notes: string;
   hidden: boolean;
+  /**
+   * Knocked out, not killed — dropped to 0 by non-lethal damage.
+   *
+   * Stable by definition: an unconscious PC rolls no death saves, and an
+   * unconscious enemy is captured rather than dead. A later lethal blow
+   * clears it, and so does any healing that puts them back above 0.
+   */
+  unconscious?: boolean;
   // --- PF2e (present when campaign.system === 'pf2e'; cleared on system change) ---
   /** Three-action economy: remaining actions this turn (0–3). */
   actionsRemaining?: number;
@@ -214,6 +222,12 @@ export interface PartyMember {
   levelLog: LevelEntry[];
   notes: string;
   importedFrom?: 'ddb-json' | 'pathbuilder' | 'manual';
+  /**
+   * Sitting this one out — the player is away, or the character is elsewhere.
+   * The sheet stays on the roster with its live HP; the tracker just never
+   * seats them, and they are out of the encounter budget. Absent = at the table.
+   */
+  benched?: boolean;
   /** PF2e focus points (per character). */
   focusPoints?: { current: number; max: number };
   /**
@@ -376,6 +390,8 @@ export interface UndoSnapshot {
   hp: number;
   tempHp: number;
   deathSaves: { successes: number; failures: number };
+  /** Restored with the HP, so undoing a knockout un-knocks them out. */
+  unconscious?: boolean;
   kind: 'damage' | 'heal' | 'temp';
 }
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { pf2eModToScore } from './bestiary/normalize-nethys';
 import {
   abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
   adjustAbilityBonus,
   blankStatBlock,
   draftFromImport,
@@ -88,5 +91,30 @@ Scimitar. Melee Weapon Attack: +4 to hit. Hit: 5 (1d6 + 2) slashing damage.
     expect(draft.derivedFromId).toBeUndefined();
     expect(HOMEBREW_EXPORT_WARNING).toMatch(/unacceptable/i);
     expect(exportCreatureJson(draft)).toContain('"name": "Goblin"');
+  });
+});
+
+describe('abilities per system', () => {
+  it('writes 5e as a score with the modifier, PF2e as the modifier alone', () => {
+    expect(formatAbility(18, 'score')).toBe('18 (+4)');
+    expect(formatAbility(18, 'modifier')).toBe('+4');
+    expect(formatAbility(9, 'score')).toBe('9 (-1)');
+    expect(formatAbility(9, 'modifier')).toBe('-1');
+    expect(formatAbility(10, 'modifier')).toBe('+0');
+  });
+
+  it('carries a hand-applied bonus into either style', () => {
+    expect(formatAbility(18, 'modifier', 1)).toBe('+5');
+    expect(formatAbility(18, 'score', 1)).toBe('18 (+5)');
+  });
+
+  it('round-trips a PF2e modifier through the stored score', () => {
+    for (let mod = -5; mod <= 10; mod++) {
+      const score = abilityScoreFromModifier(mod);
+      expect(abilityModifier(score)).toBe(mod);
+      // The editor and the Nethys importer must agree on the same score,
+      // or a synced creature would change the moment it is opened.
+      expect(score).toBe(pf2eModToScore(mod));
+    }
   });
 });

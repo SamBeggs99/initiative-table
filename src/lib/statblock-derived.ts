@@ -37,11 +37,35 @@ export function adjustAbilityBonus(
 }
 
 /**
- * Shared ability line for 5e and PF2e — both use scores, not raw modifiers.
+ * The 5e ability line: score with the modifier in brackets.
  * Example: score 9 → "9 (−1)". Optional `bonus` is a manual modifier overlay.
  */
 export function formatAbilityScore(score: number, bonus = 0): string {
   return `${score} (${formatModifier(abilityModifier(score) + bonus)})`;
+}
+
+/**
+ * Ability as the system writes it: "18 (+4)" for 5e, "+4" for PF2e, whose
+ * stat blocks print modifiers and never a score.
+ */
+export function formatAbility(
+  score: number,
+  style: 'score' | 'modifier',
+  bonus = 0,
+): string {
+  if (style === 'modifier') {
+    return formatModifier(abilityModifier(score) + bonus);
+  }
+  return formatAbilityScore(score, bonus);
+}
+
+/**
+ * The score that yields this modifier — the inverse of `abilityModifier`, for
+ * reading a PF2e stat block in and storing it in the shared score field.
+ * Exact for every PF2e creature, because +N maps to the even score 10 + 2N.
+ */
+export function abilityScoreFromModifier(modifier: number): number {
+  return 10 + Math.round(modifier) * 2;
 }
 
 export const ABILITY_LABELS: Record<Ability, string> = {

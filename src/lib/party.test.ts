@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { applyDamage } from './damage';
 import {
+  activeParty,
   adjustPartyLiveHp,
   applyGearChange,
+  benchPartyMember,
+  isBenched,
+  unbenchPartyMember,
   applyLevelUp,
   applyLivePatch,
   applyPartyLiveWriteBack,
@@ -181,7 +185,7 @@ describe('sheet vs live', () => {
     ]);
     const again = ensurePartyCombatants(first.combatants, [a, b]);
     expect(again.added).toHaveLength(0);
-    expect(again.removed).toBe(0);
+    expect(again.removed).toHaveLength(0);
   });
 
   it('drops tape rows when a party member is deleted', () => {
@@ -193,9 +197,60 @@ describe('sheet vs live', () => {
       [partyMemberToCombatant(a), partyMemberToCombatant(b)],
       [a],
     );
-    expect(result.removed).toBe(1);
+    expect(result.removed).toHaveLength(1);
+    expect(result.removed[0]!.sourcePartyMemberId).toBe('pc2');
     expect(result.combatants).toHaveLength(1);
     expect(result.combatants[0]!.sourcePartyMemberId).toBe('pc1');
+  });
+
+  it('never seats a benched character, and drops the row if they are seated', () => {
+    const a = blankPartyMember('camp');
+    a.id = 'pc1';
+    a.name = 'Kael';
+    const b = blankPartyMember('camp');
+    b.id = 'pc2';
+    b.name = 'Aria';
+
+    const seated = ensurePartyCombatants([], [a, b]);
+    expect(seated.combatants.map((c) => c.name)).toEqual(['Kael', 'Aria']);
+
+    const benchedAria = { ...b, benched: true };
+    const after = ensurePartyCombatants(seated.combatants, [a, benchedAria]);
+    expect(after.removed.map((c) => c.name)).toEqual(['Aria']);
+    expect(after.combatants.map((c) => c.name)).toEqual(['Kael']);
+
+    // And a re-sync does not quietly seat them again.
+    const stable = ensurePartyCombatants(after.combatants, [a, benchedAria]);
+    expect(stable.added).toHaveLength(0);
+    expect(stable.combatants).toHaveLength(1);
+    expect(partyMembersNotInCombat([a, benchedAria], after.combatants)).toEqual(
+      [],
+    );
+  });
+
+  it('benching banks the combatant HP on the sheet; rejoining restores it', () => {
+    const m = blankPartyMember('camp');
+    m.id = 'pc1';
+    m.maxHp = 40;
+    m.currentHp = 40;
+
+    const row = partyMemberToCombatant(m);
+    const hurt = { ...row, hp: 7, tempHp: 3 };
+
+    const benched = benchPartyMember(m, hurt);
+    expect(benched.benched).toBe(true);
+    expect(benched.currentHp).toBe(7);
+    expect(benched.tempHp).toBe(3);
+    // Sheet fields are untouched by the write-back.
+    expect(benched.maxHp).toBe(40);
+
+    const back = unbenchPartyMember(benched);
+    expect(back.benched).toBeUndefined();
+    expect(isBenched(back)).toBe(false);
+    // They come back as hurt as they left, not topped up.
+    expect(partyMemberToCombatant(back).hp).toBe(7);
+    expect(activeParty([back])).toHaveLength(1);
+    expect(activeParty([benched])).toHaveLength(0);
   });
 
   it('resets initiative after a fight but keeps HP', () => {

@@ -503,6 +503,36 @@ export function applyPartySheetToCombatant(
   };
 }
 
+export function isBenched(member: PartyMember): boolean {
+  return member.benched === true;
+}
+
+/** Everyone at the table tonight — the roster minus anyone sitting out. */
+export function activeParty(party: PartyMember[]): PartyMember[] {
+  return party.filter((m) => !isBenched(m));
+}
+
+/**
+ * Sit a character out. Anything live on their combatant lands on the sheet
+ * first, so benching mid-fight keeps the damage they already took.
+ */
+export function benchPartyMember(
+  member: PartyMember,
+  seated?: Combatant,
+): PartyMember {
+  const base = seated
+    ? (applyPartyLiveWriteBack([member], [seated]).party[0] ?? member)
+    : member;
+  return { ...base, benched: true };
+}
+
+/** Back at the table. They rejoin the tape at whatever HP the sheet holds. */
+export function unbenchPartyMember(member: PartyMember): PartyMember {
+  const next = { ...member };
+  delete next.benched;
+  return next;
+}
+
 export function isPartyMemberInCombat(
   memberId: string,
   combatants: Combatant[],
@@ -510,33 +540,39 @@ export function isPartyMemberInCombat(
   return combatants.some((c) => c.sourcePartyMemberId === memberId);
 }
 
-/** Party members that do not yet have a combatant linked to them. */
+/** Active party members that do not yet have a combatant linked to them. */
 export function partyMembersNotInCombat(
   party: PartyMember[],
   combatants: Combatant[],
 ): PartyMember[] {
-  return party.filter((m) => !isPartyMemberInCombat(m.id, combatants));
+  return activeParty(party).filter(
+    (m) => !isPartyMemberInCombat(m.id, combatants),
+  );
 }
 
 /**
  * Keep the party on the tape: add anyone missing, drop rows whose PC was
- * deleted. Does not reorder existing combatants or touch enemies.
+ * deleted or benched. Does not reorder existing combatants or touch enemies.
+ * `removed` carries the dropped rows so the caller can write their live HP
+ * back to the sheet before they leave.
  */
 export function ensurePartyCombatants(
   combatants: Combatant[],
   party: PartyMember[],
-): { combatants: Combatant[]; added: Combatant[]; removed: number } {
-  const partyIds = new Set(party.map((p) => p.id));
-  const kept = combatants.filter(
-    (c) => !c.sourcePartyMemberId || partyIds.has(c.sourcePartyMemberId),
-  );
-  const removed = combatants.length - kept.length;
+): { combatants: Combatant[]; added: Combatant[]; removed: Combatant[] } {
+  const seatable = new Set(activeParty(party).map((p) => p.id));
+  const kept: Combatant[] = [];
+  const removed: Combatant[] = [];
+  for (const c of combatants) {
+    if (!c.sourcePartyMemberId || seatable.has(c.sourcePartyMemberId)) kept.push(c);
+    else removed.push(c);
+  }
   const present = new Set(
     kept
       .map((c) => c.sourcePartyMemberId)
       .filter((id): id is string => Boolean(id)),
   );
-  const added = party
+  const added = activeParty(party)
     .filter((p) => !present.has(p.id))
     .map(partyMemberToCombatant);
   return { combatants: [...kept, ...added], added, removed };

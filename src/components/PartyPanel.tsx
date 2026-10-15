@@ -3,7 +3,11 @@ import { parseDamageField, applyTempHp } from '../lib/combat';
 import { hueHex, pcHueId } from '../lib/identity';
 import { importDdbJson } from '../lib/import/ddb';
 import { importPathbuilderJson } from '../lib/import/pathbuilder';
-import { formatAbilityScore } from '../lib/statblock-derived';
+import {
+  abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
+} from '../lib/statblock-derived';
 import {
   activeParty,
   applyGearChange,
@@ -17,6 +21,7 @@ import {
   spellSlotsFromClassTable,
 } from '../lib/party';
 import { useStore } from '../store';
+import { getSystemAdapter } from '../systems';
 import type { PartyMember } from '../types';
 import { emptySpellSlots } from '../types';
 import { Sprig } from './ornament/Botanical';
@@ -333,6 +338,11 @@ function SheetForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(() => structuredClone(member));
+  // A Pathfinder sheet prints "Dex +2" and never a score. Storage keeps a
+  // score either way; the style only decides what the DM reads and types, and
+  // +N round-trips through the even score 10 + 2N without losing anything.
+  const abilityStyle = getSystemAdapter(system).statBlockForm.abilityStyle;
+  const dexAsModifier = abilityStyle === 'modifier';
 
   const setSheet = (patch: Parameters<typeof applySheetPatch>[1]) => {
     setDraft((d) => applySheetPatch(d, patch));
@@ -428,16 +438,24 @@ function SheetForm({
             />
           </label>
           <label className="block">
-            <span className="text-xs text-muted">Dex score</span>
+            <span className="text-xs text-muted">
+              {dexAsModifier ? 'Dex modifier' : 'Dex score'}
+            </span>
             <NumberField
-              min={1}
-              max={30}
+              min={dexAsModifier ? -5 : 1}
+              max={dexAsModifier ? 10 : 30}
               className="mt-0.5 w-full rounded border border-border bg-panel-2 px-2 py-1 font-mono-stats tabular-nums text-text"
-              value={draft.dex}
-              onChange={(n) => setSheet({ dex: n || 10 })}
+              value={dexAsModifier ? abilityModifier(draft.dex) : draft.dex}
+              onChange={(n) =>
+                setSheet({
+                  dex: dexAsModifier ? abilityScoreFromModifier(n) : n || 10,
+                })
+              }
             />
             <span className="mt-0.5 block font-mono-stats text-[10px] tabular-nums text-muted">
-              {formatAbilityScore(draft.dex)} — same formula for 5e and PF2e
+              {dexAsModifier
+                ? `Dex ${formatAbility(draft.dex, abilityStyle)}`
+                : `${formatAbility(draft.dex, abilityStyle)} — same formula for 5e and PF2e`}
             </span>
           </label>
           <label className="block">
@@ -519,14 +537,17 @@ function SheetForm({
 function ImportDialog({
   kind,
   campaignId,
+  system,
   onClose,
   onCommit,
 }: {
   kind: 'ddb' | 'pathbuilder';
   campaignId: string;
+  system: 'dnd5e' | 'pf2e';
   onClose: () => void;
   onCommit: (member: PartyMember) => void;
 }) {
+  const abilityStyle = getSystemAdapter(system).statBlockForm.abilityStyle;
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<{
@@ -634,7 +655,7 @@ function ImportDialog({
               <p className="text-muted">
                 L{review.member.level} {review.member.class} · AC {review.member.ac} ·
                 HP {review.member.currentHp}/{review.member.maxHp} · Dex{' '}
-                {formatAbilityScore(review.member.dex)}
+                {formatAbility(review.member.dex, abilityStyle)}
               </p>
               <p className="text-muted">
                 PP {review.member.passivePerception} · PI{' '}
@@ -1121,6 +1142,7 @@ export function PartyPanel() {
         <ImportDialog
           kind={importKind}
           campaignId={campaign.id}
+          system={campaign.system}
           onClose={() => setImportKind(null)}
           onCommit={(member) => {
             upsertPartyMember(member);

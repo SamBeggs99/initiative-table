@@ -9,9 +9,14 @@ import {
   samplePartyForSystem,
   type WizardPartyDraft,
 } from '../lib/onboarding';
-import { formatAbilityScore } from '../lib/statblock-derived';
+import {
+  abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
+} from '../lib/statblock-derived';
 import { BloomCluster, CornerVine, SproutMark, VineRule } from './ornament/Botanical';
 import { useStore } from '../store';
+import { getSystemAdapter } from '../systems';
 import type { System } from '../types';
 import { NumberField } from './ui/NumberField';
 
@@ -59,6 +64,11 @@ export function FirstCampaignWizard({
   const [priorCampaignId] = useState(
     () => useStore.getState().activeCampaignId,
   );
+
+  // A Pathfinder sheet prints "Dex +2" and never a score. The draft still
+  // stores a score; this only decides what the DM reads and types.
+  const abilityStyle = getSystemAdapter(system).statBlockForm.abilityStyle;
+  const dexAsModifier = abilityStyle === 'modifier';
 
   const completeDrafts = useMemo(
     () => drafts.filter(isDraftComplete),
@@ -345,18 +355,22 @@ export function FirstCampaignWizard({
                         />
                       </label>
                       <label className="text-[10px] text-muted">
-                        Dex score
+                        {dexAsModifier ? 'Dex mod' : 'Dex score'}
                         <NumberField
-                          min={1}
-                          max={30}
+                          min={dexAsModifier ? -5 : 1}
+                          max={dexAsModifier ? 10 : 30}
                           className="field mt-0.5 w-full py-0.5"
-                          value={d.dex}
+                          value={dexAsModifier ? abilityModifier(d.dex) : d.dex}
                           onChange={(n) =>
-                            updateDraft(i, { dex: n })
+                            updateDraft(i, {
+                              dex: dexAsModifier
+                                ? abilityScoreFromModifier(n)
+                                : n,
+                            })
                           }
                         />
                         <span className="mt-0.5 block font-mono-stats tabular-nums opacity-80">
-                          {formatAbilityScore(d.dex)}
+                          {formatAbility(d.dex, abilityStyle)}
                         </span>
                       </label>
                     </div>

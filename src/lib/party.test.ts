@@ -32,6 +32,12 @@ import {
 import { createCombatant } from '../types';
 import { importDdbJson } from './import/ddb';
 import { importPathbuilderJson } from './import/pathbuilder';
+import {
+  abilityModifier,
+  abilityScoreFromModifier,
+  formatAbility,
+} from './statblock-derived';
+import { getSystemAdapter } from '../systems';
 
 describe('sheet vs live', () => {
   it('live patch never mutates maxHp or ac', () => {
@@ -483,5 +489,80 @@ describe('importPathbuilderJson', () => {
     expect(result.member.maxHp).toBe(50);
     expect(result.member.importedFrom).toBe('pathbuilder');
     expect(result.member.focusPoints?.max).toBe(1);
+  });
+});
+
+describe('PF2e sheets read and write Dex as a modifier', () => {
+  // The sheet form, the wizard column and the import review all convert at
+  // the UI boundary only: PartyMember keeps a score, so nothing in combat
+  // math moves. These guard the pair of helpers that conversion leans on, so
+  // a Dex cannot drift by 10 between what the DM reads and what is stored.
+  it('gives each system the ability style its sheets print', () => {
+    expect(getSystemAdapter('dnd5e').statBlockForm.abilityStyle).toBe('score');
+    expect(getSystemAdapter('pf2e').statBlockForm.abilityStyle).toBe(
+      'modifier',
+    );
+  });
+
+  it('round-trips every modifier a character sheet can hold', () => {
+    for (let mod = -5; mod <= 10; mod++) {
+      const score = abilityScoreFromModifier(mod);
+      expect(abilityModifier(score)).toBe(mod);
+      expect(formatAbility(score, 'modifier')).toBe(
+        mod >= 0 ? `+${mod}` : `${mod}`,
+      );
+    }
+  });
+
+  it('leaves the stored score alone when the form saves what it showed', () => {
+    const m = blankPartyMember('camp', { system: 'pf2e' });
+    m.dex = 18;
+    // What the PF2e field reads out, then writes back untouched.
+    const shown = abilityModifier(m.dex);
+    expect(shown).toBe(4);
+    const saved = applySheetPatch(m, { dex: abilityScoreFromModifier(shown) });
+    expect(saved.dex).toBe(18);
+    expect(partyMemberToCombatant(saved).dex).toBe(18);
+  });
+
+  it('keeps an imported Pathbuilder Dex reading as the sheet prints it', () => {
+    const result = importPathbuilderJson(
+      JSON.stringify({
+        success: true,
+        build: {
+          name: 'Amiri',
+          class: 'Barbarian',
+          level: 3,
+          ancestry: 'Human',
+          abilities: { str: 18, dex: 14, con: 14, int: 10, wis: 12, cha: 8 },
+          attributes: {
+            ancestryhp: 8,
+            classhp: 12,
+            bonushp: 0,
+            bonushpPerLevel: 0,
+          },
+          acTotal: { acTotal: 18 },
+          perception: 6,
+        },
+      }),
+      'camp',
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Pathbuilder exports a score; the review line reads it back as "+2".
+    expect(result.member.dex).toBe(14);
+    expect(formatAbility(result.member.dex, 'modifier')).toBe('+2');
+    const saved = applySheetPatch(result.member, {
+      dex: abilityScoreFromModifier(abilityModifier(result.member.dex)),
+    });
+    expect(saved.dex).toBe(14);
+  });
+
+  it('keeps the modifier when an odd score settles on the even one', () => {
+    // Apex items hand out odd scores (19). PF2e only ever reads the modifier,
+    // so +4 stays +4 — the stored score settles on 18 if the field is edited.
+    expect(abilityModifier(19)).toBe(4);
+    expect(abilityScoreFromModifier(abilityModifier(19))).toBe(18);
+    expect(abilityModifier(18)).toBe(4);
   });
 });
